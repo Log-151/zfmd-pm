@@ -36,9 +36,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">仪表盘概览</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-primary">全局概览</h1>
       </div>
-
       {isLoadingSummary ? (
         <div className="text-muted-foreground">加载中...</div>
       ) : (
@@ -191,5 +190,5 @@ export default function Dashboard() {
         </>
       )}
     </div>
-  )
+  );
 }
