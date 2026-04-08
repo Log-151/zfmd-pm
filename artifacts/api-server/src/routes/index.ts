@@ -7,6 +7,7 @@ import workOrdersRouter from "./work-orders";
 import weatherServicesRouter from "./weather-services";
 import receivablesRouter from "./receivables";
 import dashboardRouter from "./dashboard";
+import customFieldDefsRouter from "./custom-field-defs";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(workOrdersRouter);
 router.use(weatherServicesRouter);
 router.use(receivablesRouter);
 router.use(dashboardRouter);
+router.use(customFieldDefsRouter);
 
 export default router;

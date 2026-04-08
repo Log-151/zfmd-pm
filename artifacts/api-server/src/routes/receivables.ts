@@ -103,7 +103,7 @@ router.get("/receivables", async (req, res): Promise<void> => {
 router.post("/receivables", async (req, res): Promise<void> => {
   const parsed = CreateReceivableBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [r] = await db.insert(receivablesTable).values({ ...parsed.data, amount: String(parsed.data.amount) }).returning();
+  const [r] = await db.insert(receivablesTable).values({ ...parsed.data, amount: String(parsed.data.amount), customFields: req.body.customFields ?? {} }).returning();
   res.status(201).json(toReceivableResponse(r));
 });
 
@@ -123,6 +123,7 @@ router.patch("/receivables/:id", async (req, res): Promise<void> => {
 
   const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
   if (parsed.data.amount != null) updateData.amount = String(parsed.data.amount);
+  if (req.body.customFields !== undefined) updateData.customFields = req.body.customFields;
 
   // Auto-compute days late if both dates present
   if (parsed.data.actualPaymentDate) {

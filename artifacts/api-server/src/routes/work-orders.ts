@@ -49,7 +49,7 @@ router.post("/work-orders", async (req, res): Promise<void> => {
     hasContract = !!contract;
   }
 
-  const [wo] = await db.insert(workOrdersTable).values({ ...parsed.data, hasContract }).returning();
+  const [wo] = await db.insert(workOrdersTable).values({ ...parsed.data, hasContract, customFields: req.body.customFields ?? {} }).returning();
   res.status(201).json(toWorkOrderResponse(wo));
 });
 
@@ -66,7 +66,8 @@ router.patch("/work-orders/:id", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdateWorkOrderBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [updated] = await db.update(workOrdersTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(workOrdersTable.id, params.data.id)).returning();
+  const customFields = req.body.customFields;
+  const [updated] = await db.update(workOrdersTable).set({ ...parsed.data, ...(customFields !== undefined && { customFields }), updatedAt: new Date() }).where(eq(workOrdersTable.id, params.data.id)).returning();
   if (!updated) { res.status(404).json({ error: "Work order not found" }); return; }
   res.json(toWorkOrderResponse(updated));
 });

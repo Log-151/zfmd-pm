@@ -1,58 +1,172 @@
-import { useState } from "react";
-import { useListInvoices, getListInvoicesQueryKey } from "@workspace/api-client-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  useListInvoices, getListInvoicesQueryKey,
+  useCreateInvoice, useUpdateInvoice, useDeleteInvoice,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
+import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
+import { ImportDialog } from "@/components/crud/ImportDialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+type InvoiceItem = { id: number; invoiceNo: string | null; customer: string; contractNo: string | null; province: string; station: string; salesManager: string; invoiceDate: string; amountWithTax: number; amountWithoutTax: number; taxRate: number; expectedPaymentDate: string | null; expectedPaymentAmount: number | null; actualPaymentDate: string | null; actualPaymentAmount: number | null; status: string; notes: string | null; outstandingAmount: number; isOverdue: boolean; customFields: Record<string, unknown> | null };
+
+const EMPTY_FORM = {
+  invoiceNo: "", customer: "", contractNo: "", province: "", station: "", salesManager: "",
+  invoiceDate: "", amountWithTax: 0, amountWithoutTax: 0, taxRate: 0.09,
+  expectedPaymentDate: "", expectedPaymentAmount: 0, actualPaymentDate: "", actualPaymentAmount: 0,
+  status: "有效", notes: "",
+};
 
 export default function Invoices() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { defs, addDef, deleteDef } = useCustomFieldDefs("invoices");
+
   const [search, setSearch] = useState("");
-  
-  const { data: invoices, isLoading } = useListInvoices(
-    { contractNo: search || undefined },
-    { query: { queryKey: getListInvoicesQueryKey({ contractNo: search || undefined }) } }
-  );
+  const [yearFilter, setYearFilter] = useState("all");
+  const [provinceFilter, setProvinceFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [overdueOnly, setOverdueOnly] = useState(false);
+
+  const [showCreate, setShowCreate] = useState(false);
+  const [editItem, setEditItem] = useState<InvoiceItem | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [showCF, setShowCF] = useState(false);
+  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean | number>>({});
+
+  const qp = {
+    contractNo: search || undefined,
+    year: yearFilter !== "all" ? parseInt(yearFilter) : undefined,
+    province: provinceFilter !== "all" ? provinceFilter : undefined,
+    overdueOnly: overdueOnly || undefined,
+  };
+  const { data: invoices, isLoading } = useListInvoices(qp, { query: { queryKey: getListInvoicesQueryKey(qp) } });
+
+  const filtered = useMemo(() => {
+    if (!invoices) return [];
+    return statusFilter !== "all" ? invoices.filter(i => i.status === statusFilter) : invoices;
+  }, [invoices, statusFilter]);
+
+  const provinces = useMemo(() => [...new Set((invoices ?? []).map(i => i.province).filter(Boolean))].sort(), [invoices]);
+  const totalInvoiced = useMemo(() => filtered.reduce((s, i) => s + i.amountWithTax, 0), [filtered]);
+  const totalOutstanding = useMemo(() => filtered.reduce((s, i) => s + (i.outstandingAmount ?? 0), 0), [filtered]);
+  const overdueCount = useMemo(() => filtered.filter(i => i.isOverdue).length, [filtered]);
+
+  useEffect(() => {
+    if (editItem) {
+      setForm({ invoiceNo: editItem.invoiceNo ?? "", customer: editItem.customer, contractNo: editItem.contractNo ?? "", province: editItem.province, station: editItem.station, salesManager: editItem.salesManager, invoiceDate: editItem.invoiceDate, amountWithTax: editItem.amountWithTax, amountWithoutTax: editItem.amountWithoutTax, taxRate: editItem.taxRate, expectedPaymentDate: editItem.expectedPaymentDate ?? "", expectedPaymentAmount: editItem.expectedPaymentAmount ?? 0, actualPaymentDate: editItem.actualPaymentDate ?? "", actualPaymentAmount: editItem.actualPaymentAmount ?? 0, status: editItem.status, notes: editItem.notes ?? "" });
+      setCustomFieldValues((editItem.customFields ?? {}) as Record<string, string | boolean | number>);
+    } else {
+      setForm({ ...EMPTY_FORM });
+      setCustomFieldValues({});
+    }
+  }, [editItem]);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+
+  const createMutation = useCreateInvoice({ mutation: { onSuccess: () => { invalidate(); setShowCreate(false); toast({ title: "开票记录已创建" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
+  const updateMutation = useUpdateInvoice({ mutation: { onSuccess: () => { invalidate(); setEditItem(null); toast({ title: "已更新" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
+  const deleteMutation = useDeleteInvoice({ mutation: { onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "已删除" }); }, onError: () => toast({ title: "删除失败", variant: "destructive" }) } });
+
+  const handleSubmit = () => {
+    if (!form.customer || !form.invoiceDate || !form.province || !form.salesManager) {
+      toast({ title: "请填写必填项", variant: "destructive" }); return;
+    }
+    const data = {
+      ...form, amountWithTax: Number(form.amountWithTax), amountWithoutTax: Number(form.amountWithoutTax),
+      taxRate: Number(form.taxRate), expectedPaymentAmount: Number(form.expectedPaymentAmount) || undefined,
+      actualPaymentAmount: Number(form.actualPaymentAmount) || undefined,
+      invoiceNo: form.invoiceNo || undefined, contractNo: form.contractNo || undefined,
+      expectedPaymentDate: form.expectedPaymentDate || undefined, actualPaymentDate: form.actualPaymentDate || undefined,
+      notes: form.notes || undefined,
+    };
+    if (editItem) {
+      updateMutation.mutate({ id: editItem.id, data: { ...data, customFields: customFieldValues } as any });
+    } else {
+      createMutation.mutate({ data: { ...data, customFields: customFieldValues } as any });
+    }
+  };
+
+  const f = (k: keyof typeof EMPTY_FORM, v: unknown) => setForm(p => ({ ...p, [k]: v }));
 
   const handleExport = () => {
-    if (!invoices) return;
-    exportToCsv("开票记录", invoices, [
-      { header: "发票号码", accessor: (i) => i.invoiceNo },
-      { header: "客户名称", accessor: (i) => i.customer },
-      { header: "关联合同", accessor: (i) => i.contractNo },
-      { header: "开票金额(含税)", accessor: (i) => i.amountWithTax },
-      { header: "开票日期", accessor: (i) => formatDate(i.invoiceDate) },
-      { header: "未结清金额", accessor: (i) => i.outstandingAmount },
-      { header: "状态", accessor: (i) => i.status },
+    if (!filtered) return;
+    exportToCsv("开票记录", filtered, [
+      { header: "发票号码", accessor: i => i.invoiceNo ?? "" },
+      { header: "客户名称", accessor: i => i.customer },
+      { header: "关联合同", accessor: i => i.contractNo ?? "" },
+      { header: "开票金额", accessor: i => i.amountWithTax },
+      { header: "开票日期", accessor: i => formatDate(i.invoiceDate) },
+      { header: "未结清", accessor: i => i.outstandingAmount },
+      { header: "状态", accessor: i => i.status },
     ]);
   };
 
   return (
-    <div className="space-y-6 flex flex-col h-full">
+    <div className="space-y-4 flex flex-col h-full">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">开票管理</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="w-4 h-4 mr-2" /> 导出 CSV
-          </Button>
-          <Button size="sm">
-            <Plus className="w-4 h-4 mr-2" /> 申请开票
-          </Button>
+          <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
+          <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
+          <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 申请开票</Button>
         </div>
       </div>
-      
-      <div className="bg-card rounded-lg border shadow-sm p-4 flex gap-4 items-center">
-        <div className="relative flex-1 max-w-sm">
+
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "总开票金额", value: formatWanYuan(totalInvoiced), sub: `共 ${filtered.length} 张` },
+          { label: "待结清金额", value: formatWanYuan(totalOutstanding), sub: "未收回款" },
+          { label: "逾期张数", value: String(overdueCount), sub: "超过预计收款日" },
+        ].map(stat => (
+          <div key={stat.label} className="bg-card border rounded-lg p-4">
+            <p className="text-sm text-muted-foreground">{stat.label}</p>
+            <p className="text-xl font-bold">{stat.value}</p>
+            <p className="text-xs text-muted-foreground">{stat.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card rounded-lg border shadow-sm p-3 flex flex-wrap gap-3 items-center">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="搜索合同编号..."
-            className="pl-9"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <Input placeholder="搜索合同编号、客户..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        {[
+          { label: "年份", value: yearFilter, onChange: setYearFilter, options: [{ v: "all", l: "全部年份" }, ...[2026,2025,2024,2023,2022].map(y => ({ v: String(y), l: String(y) }))] },
+          { label: "省份", value: provinceFilter, onChange: setProvinceFilter, options: [{ v: "all", l: "全部省份" }, ...provinces.map(p => ({ v: p, l: p }))] },
+          { label: "状态", value: statusFilter, onChange: setStatusFilter, options: [{ v: "all", l: "全部状态" }, { v: "有效", l: "有效" }, { v: "已开票", l: "已开票" }, { v: "作废", l: "作废" }] },
+        ].map(sel => (
+          <Select key={sel.label} value={sel.value} onValueChange={sel.onChange}>
+            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={sel.label} /></SelectTrigger>
+            <SelectContent>{sel.options.map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
+          </Select>
+        ))}
+        <div className="flex items-center gap-2">
+          <Checkbox id="overdue" checked={overdueOnly} onCheckedChange={v => setOverdueOnly(!!v)} />
+          <label htmlFor="overdue" className="text-sm cursor-pointer">仅逾期</label>
+        </div>
+        {(search || yearFilter !== "all" || provinceFilter !== "all" || statusFilter !== "all" || overdueOnly) && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(""); setYearFilter("all"); setProvinceFilter("all"); setStatusFilter("all"); setOverdueOnly(false); }}>清除筛选</Button>
+        )}
       </div>
 
       <div className="bg-card rounded-lg border shadow-sm flex-1 overflow-hidden flex flex-col">
@@ -65,56 +179,108 @@ export default function Invoices() {
                 <TableHead>关联合同</TableHead>
                 <TableHead className="text-right">开票金额</TableHead>
                 <TableHead>开票日期</TableHead>
+                <TableHead>预计收款日</TableHead>
                 <TableHead className="text-right">未结清</TableHead>
                 <TableHead>状态</TableHead>
+                <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">加载中...</TableCell>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+              ) : !filtered.length ? (
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+              ) : filtered.map(inv => (
+                <TableRow key={inv.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">{inv.invoiceNo || "-"}</TableCell>
+                  <TableCell className="max-w-[150px] truncate" title={inv.customer}>{inv.customer}</TableCell>
+                  <TableCell className="text-muted-foreground">{inv.contractNo || "-"}</TableCell>
+                  <TableCell className="text-right font-medium">{formatWanYuan(inv.amountWithTax)}</TableCell>
+                  <TableCell>{formatDate(inv.invoiceDate)}</TableCell>
+                  <TableCell>{formatDate(inv.expectedPaymentDate)}</TableCell>
+                  <TableCell className="text-right font-medium text-amber-600">{inv.outstandingAmount > 0 ? formatWanYuan(inv.outstandingAmount) : "-"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Badge variant={inv.status === "已开票" ? "default" : "outline"}>{inv.status}</Badge>
+                      {inv.isOverdue && (
+                        <TooltipProvider>
+                          <Tooltip><TooltipTrigger><AlertCircle className="w-4 h-4 text-destructive" /></TooltipTrigger><TooltipContent>已逾期</TooltipContent></Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(inv as any)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(inv.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
-              ) : !invoices?.length ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">暂无数据</TableCell>
-                </TableRow>
-              ) : (
-                invoices.map((invoice) => (
-                  <TableRow key={invoice.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell className="font-medium">{invoice.invoiceNo || "-"}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={invoice.customer}>{invoice.customer}</TableCell>
-                    <TableCell>{invoice.contractNo || "-"}</TableCell>
-                    <TableCell className="text-right font-medium">{formatWanYuan(invoice.amountWithTax)}</TableCell>
-                    <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                    <TableCell className="text-right font-medium text-amber-600">
-                      {invoice.outstandingAmount > 0 ? formatWanYuan(invoice.outstandingAmount) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={invoice.status === "已开票" ? "default" : "outline"}>
-                          {invoice.status}
-                        </Badge>
-                        {invoice.isOverdue && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <AlertCircle className="w-4 h-4 text-destructive" />
-                              </TooltipTrigger>
-                              <TooltipContent>已逾期</TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              ))}
             </TableBody>
           </Table>
         </div>
       </div>
-    </div>
-  )
-}
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+      <Dialog open={showCreate || editItem !== null} onOpenChange={v => { if (!v) { setShowCreate(false); setEditItem(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editItem ? "编辑发票" : "申请开票"}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-4 py-2">
+            <div className="space-y-1.5"><Label>发票号码</Label><Input value={form.invoiceNo} onChange={e => f("invoiceNo", e.target.value)} placeholder="发票号" /></div>
+            <div className="space-y-1.5"><Label>状态</Label>
+              <Select value={form.status} onValueChange={v => f("status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{["有效","已开票","作废"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-1.5"><Label>客户名称 <span className="text-destructive">*</span></Label><Input value={form.customer} onChange={e => f("customer", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>省份 <span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>场站</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>销售经理 <span className="text-destructive">*</span></Label><Input value={form.salesManager} onChange={e => f("salesManager", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>开票日期 <span className="text-destructive">*</span></Label><Input type="date" value={form.invoiceDate} onChange={e => f("invoiceDate", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>含税金额（元）</Label><Input type="number" value={form.amountWithTax} onChange={e => f("amountWithTax", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>不含税金额（元）</Label><Input type="number" value={form.amountWithoutTax} onChange={e => f("amountWithoutTax", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>税率</Label><Input type="number" step="0.01" value={form.taxRate} onChange={e => f("taxRate", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>预计收款日</Label><Input type="date" value={form.expectedPaymentDate} onChange={e => f("expectedPaymentDate", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>预计收款金额（元）</Label><Input type="number" value={form.expectedPaymentAmount} onChange={e => f("expectedPaymentAmount", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>实际收款日</Label><Input type="date" value={form.actualPaymentDate} onChange={e => f("actualPaymentDate", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>实际收款金额（元）</Label><Input type="number" value={form.actualPaymentAmount} onChange={e => f("actualPaymentAmount", e.target.value)} /></div>
+            <div className="col-span-2 space-y-1.5"><Label>备注</Label><Input value={form.notes} onChange={e => f("notes", e.target.value)} /></div>
+            <div className="col-span-2"><CustomFieldsSection defs={defs} values={customFieldValues} onChange={setCustomFieldValues} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowCreate(false); setEditItem(null); }}>取消</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>{editItem ? "保存" : "创建"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>删除后无法恢复，确定要删除此开票记录吗？</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>删除</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ImportDialog open={showImport} onOpenChange={setShowImport} title="开票管理" templateFilename="开票导入模板.csv"
+        columns={[
+          { key: "customer", label: "客户名称", required: true },
+          { key: "contractNo", label: "关联合同号" },
+          { key: "invoiceNo", label: "发票号码" },
+          { key: "province", label: "省份", required: true },
+          { key: "salesManager", label: "销售经理", required: true },
+          { key: "invoiceDate", label: "开票日期", required: true },
+          { key: "amountWithTax", label: "含税金额", required: true, transform: v => parseFloat(v) || 0 },
+          { key: "amountWithoutTax", label: "不含税金额", transform: v => parseFloat(v) || 0 },
+          { key: "status", label: "状态" },
+        ]}
+        onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
+      />
+      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} />
+    </div>
+  );
+}

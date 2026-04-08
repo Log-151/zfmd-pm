@@ -131,7 +131,7 @@ router.post("/payments", async (req, res): Promise<void> => {
     }
   }
 
-  const [payment] = await db.insert(paymentsTable).values({ ...parsed.data, amount: String(parsed.data.amount), paymentRatio }).returning();
+  const [payment] = await db.insert(paymentsTable).values({ ...parsed.data, amount: String(parsed.data.amount), paymentRatio, customFields: req.body.customFields ?? {} }).returning();
   res.status(201).json(toPaymentResponse(payment));
 });
 
@@ -148,7 +148,8 @@ router.patch("/payments/:id", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdatePaymentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [updated] = await db.update(paymentsTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(paymentsTable.id, params.data.id)).returning();
+  const customFields = req.body.customFields;
+  const [updated] = await db.update(paymentsTable).set({ ...parsed.data, ...(customFields !== undefined && { customFields }), updatedAt: new Date() }).where(eq(paymentsTable.id, params.data.id)).returning();
   if (!updated) { res.status(404).json({ error: "Payment not found" }); return; }
   res.json(toPaymentResponse(updated));
 });

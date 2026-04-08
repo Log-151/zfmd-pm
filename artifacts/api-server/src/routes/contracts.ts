@@ -109,7 +109,7 @@ router.post("/contracts", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [contract] = await db.insert(contractsTable).values(parsed.data).returning();
+  const [contract] = await db.insert(contractsTable).values({ ...parsed.data, customFields: req.body.customFields ?? {} }).returning();
   res.status(201).json(toContractResponse(contract));
 });
 
@@ -139,7 +139,8 @@ router.patch("/contracts/:id", async (req, res): Promise<void> => {
     }
   }
 
-  const updateData = { ...parsed.data, updatedAt: new Date() };
+  const customFields = req.body.customFields;
+  const updateData = { ...parsed.data, ...(customFields !== undefined && { customFields }), updatedAt: new Date() };
   const [updated] = await db.update(contractsTable).set(updateData).where(eq(contractsTable.id, params.data.id)).returning();
   if (!updated) { res.status(404).json({ error: "Contract not found" }); return; }
 

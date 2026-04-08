@@ -12,12 +12,12 @@ import {
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { href: "/", label: "仪表盘", icon: LayoutDashboard },
+  { href: "/", label: "全局看板", icon: LayoutDashboard },
   { href: "/contracts", label: "合同管理", icon: FileText },
   { href: "/payments", label: "回款管理", icon: CreditCard },
   { href: "/invoices", label: "开票管理", icon: Receipt },
   { href: "/work-orders", label: "开工申请", icon: Wrench },
-  { href: "/weather-services", label: "数值天气", icon: CloudRain },
+  { href: "/weather-services", label: "数值天气预报", icon: CloudRain },
   { href: "/receivables", label: "应收款管理", icon: Banknote },
   { href: "/project-management", label: "项目管理", icon: LineChart },
 ];

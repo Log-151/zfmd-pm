@@ -93,6 +93,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
     amountWithoutTax: String(parsed.data.amountWithoutTax),
     taxRate: String(parsed.data.taxRate),
     expectedPaymentAmount: parsed.data.expectedPaymentAmount != null ? String(parsed.data.expectedPaymentAmount) : undefined,
+    customFields: req.body.customFields ?? {},
   }).returning();
   res.status(201).json(toInvoiceResponse(inv));
 });
@@ -112,6 +113,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const updateData: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+  if (req.body.customFields !== undefined) updateData.customFields = req.body.customFields;
   if (parsed.data.amountWithTax != null) updateData.amountWithTax = String(parsed.data.amountWithTax);
   if (parsed.data.amountWithoutTax != null) updateData.amountWithoutTax = String(parsed.data.amountWithoutTax);
   if (parsed.data.taxRate != null) updateData.taxRate = String(parsed.data.taxRate);

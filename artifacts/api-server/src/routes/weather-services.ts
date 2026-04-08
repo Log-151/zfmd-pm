@@ -89,7 +89,7 @@ router.get("/weather-services", async (req, res): Promise<void> => {
 router.post("/weather-services", async (req, res): Promise<void> => {
   const parsed = CreateWeatherServiceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [ws] = await db.insert(weatherServicesTable).values(parsed.data).returning();
+  const [ws] = await db.insert(weatherServicesTable).values({ ...parsed.data, customFields: req.body.customFields ?? {} }).returning();
   res.status(201).json(toWeatherServiceResponse(ws));
 });
 
@@ -106,7 +106,8 @@ router.patch("/weather-services/:id", async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdateWeatherServiceBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const [updated] = await db.update(weatherServicesTable).set({ ...parsed.data, updatedAt: new Date() }).where(eq(weatherServicesTable.id, params.data.id)).returning();
+  const customFields = req.body.customFields;
+  const [updated] = await db.update(weatherServicesTable).set({ ...parsed.data, ...(customFields !== undefined && { customFields }), updatedAt: new Date() }).where(eq(weatherServicesTable.id, params.data.id)).returning();
   if (!updated) { res.status(404).json({ error: "Weather service not found" }); return; }
   res.json(toWeatherServiceResponse(updated));
 });
