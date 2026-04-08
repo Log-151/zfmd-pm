@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -9,8 +10,14 @@ import {
   Banknote,
   LineChart,
   BarChart3,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const NAV_ITEMS = [
   { href: "/", label: "全局看板", icon: LayoutDashboard },
@@ -26,6 +33,31 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const [location] = useLocation();
+  const [backing, setBacking] = useState(false);
+  const { toast } = useToast();
+
+  const handleBackup = async () => {
+    setBacking(true);
+    try {
+      const res = await fetch(`${BASE}/api/backup/export`);
+      if (!res.ok) throw new Error("备份失败");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const timestamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `兆方美迪_数据备份_${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "备份成功", description: "全量数据已下载到本地" });
+    } catch {
+      toast({ title: "备份失败", description: "请稍后重试", variant: "destructive" });
+    } finally {
+      setBacking(false);
+    }
+  };
 
   return (
     <div className="w-64 bg-card border-r border-border h-full flex flex-col shrink-0 shadow-sm z-20">
@@ -59,6 +91,24 @@ export function Sidebar() {
             </Link>
           );
         })}
+      </div>
+
+      <div className="border-t border-border p-3 shrink-0">
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          onClick={handleBackup}
+          disabled={backing}
+        >
+          {backing
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Download className="w-4 h-4" />}
+          {backing ? "正在备份..." : "一键备份全量数据"}
+        </Button>
+        <p className="text-[11px] text-muted-foreground mt-1.5 px-1 leading-relaxed">
+          下载全部6个模块数据为 ZIP 压缩包，CSV 格式可直接用 Excel 打开
+        </p>
       </div>
     </div>
   );

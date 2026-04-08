@@ -9,6 +9,7 @@ import receivablesRouter from "./receivables";
 import dashboardRouter from "./dashboard";
 import customFieldDefsRouter from "./custom-field-defs";
 import { statsRouter } from "./stats";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(receivablesRouter);
 router.use(dashboardRouter);
 router.use(customFieldDefsRouter);
 router.use(statsRouter);
+router.use(backupRouter);
 
 export default router;
