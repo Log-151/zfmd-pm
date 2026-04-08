@@ -12,10 +12,12 @@ import {
   BarChart3,
   Download,
   Loader2,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -35,11 +37,12 @@ export function Sidebar() {
   const [location] = useLocation();
   const [backing, setBacking] = useState(false);
   const { toast } = useToast();
+  const { user, logout } = useAuth();
 
   const handleBackup = async () => {
     setBacking(true);
     try {
-      const res = await fetch(`${BASE}/api/backup/export`);
+      const res = await fetch(`${BASE}/api/backup/export`, { credentials: "include" });
       if (!res.ok) throw new Error("备份失败");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -93,7 +96,7 @@ export function Sidebar() {
         })}
       </div>
 
-      <div className="border-t border-border p-3 shrink-0">
+      <div className="border-t border-border p-3 shrink-0 flex flex-col gap-2">
         <Button
           variant="outline"
           size="sm"
@@ -106,9 +109,21 @@ export function Sidebar() {
             : <Download className="w-4 h-4" />}
           {backing ? "正在备份..." : "一键备份全量数据"}
         </Button>
-        <p className="text-[11px] text-muted-foreground mt-1.5 px-1 leading-relaxed">
+        <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
           下载全部6个模块数据为 ZIP 压缩包，CSV 格式可直接用 Excel 打开
         </p>
+        <div className="flex items-center justify-between pt-1 border-t border-border mt-1">
+          <span className="text-xs text-muted-foreground truncate">{user?.username ?? ""}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+            onClick={logout}
+            title="退出登录"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -45,6 +45,16 @@ A comprehensive project management system for a wind/solar energy forecasting co
 - `weather_services` — Weather forecast service records with expiry dates
 - `receivables` — Receivable tracking with delivery/acceptance/payment dates
 
+## Features
+
+- **Login authentication** — Session-based auth (express-session), hardcoded account ZFMD/ZFMD; 7-day cookie; all API routes protected by `requireAuth` middleware
+- **Custom fields** — Per-module custom field definitions stored in `custom_field_defs` table; values stored as JSONB in each module's `customFields` column; fully displayed in all 6 module table views (headers + cells)
+- **Full data backup** — One-click ZIP download of all 6 module CSVs (UTF-8 BOM, Excel-compatible), via sidebar "一键备份全量数据" button
+- **Statistics & analytics** — 8-tab analytics module with cross-module charts: annual overview, contract/payment/invoice/receivable analysis, weather expiry, manager rankings, contract-payment correlation
+- **Global dashboard** — Key financial KPIs, overdue alerts, weather expiry alerts, aging analysis
+- **CSV import** — Batch import for all 6 modules with field mapping
+- **CSV export** — Per-module filtered export
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

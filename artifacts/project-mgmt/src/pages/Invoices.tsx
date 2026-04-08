@@ -182,14 +182,15 @@ export default function Invoices() {
                 <TableHead>预计收款日</TableHead>
                 <TableHead className="text-right">未结清</TableHead>
                 <TableHead>状态</TableHead>
+                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : filtered.map(inv => (
                 <TableRow key={inv.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{inv.invoiceNo || "-"}</TableCell>
@@ -209,6 +210,7 @@ export default function Invoices() {
                       )}
                     </div>
                   </TableCell>
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((inv.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(inv as any)}><Pencil className="h-3.5 w-3.5" /></Button>

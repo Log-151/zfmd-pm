@@ -177,14 +177,15 @@ export default function WeatherServices() {
                 <TableHead>服务结束</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>预警</TableHead>
+                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : filtered.map(s => (
                 <TableRow key={s.id} className="hover:bg-muted/50">
                   <TableCell>{s.province}</TableCell>
@@ -201,6 +202,7 @@ export default function WeatherServices() {
                       <Badge className="bg-green-500 text-white hover:bg-green-600 font-normal">正常</Badge>
                     )}
                   </TableCell>
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((s.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(s as any)}><Pencil className="h-3.5 w-3.5" /></Button>

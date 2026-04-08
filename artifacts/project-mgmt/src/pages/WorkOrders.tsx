@@ -174,14 +174,15 @@ export default function WorkOrders() {
                 <TableHead>销售经理</TableHead>
                 <TableHead>申请日期</TableHead>
                 <TableHead>关联合同</TableHead>
+                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : filtered.map(wo => (
                 <TableRow key={wo.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{wo.workOrderNo}</TableCell>
@@ -197,6 +198,7 @@ export default function WorkOrders() {
                       <Badge variant="destructive" className="gap-1 flex w-fit text-xs"><AlertTriangle className="w-3 h-3" /> 无合同</Badge>
                     )}
                   </TableCell>
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((wo.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(wo as any)}><Pencil className="h-3.5 w-3.5" /></Button>

@@ -160,14 +160,15 @@ export default function Payments() {
                 <TableHead className="text-right">回款金额</TableHead>
                 <TableHead className="text-right">回款比例</TableHead>
                 <TableHead>回款日期</TableHead>
+                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !payments?.length ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : payments.map(p => (
                 <TableRow key={p.id} className="hover:bg-muted/50">
                   <TableCell className="font-medium max-w-[160px] truncate" title={p.payer}>{p.payer}</TableCell>
@@ -177,6 +178,7 @@ export default function Payments() {
                   <TableCell className="text-right font-medium text-emerald-600">+{formatWanYuan(p.amount)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{p.paymentRatio ? `${(p.paymentRatio * 100).toFixed(1)}%` : "-"}</TableCell>
                   <TableCell>{formatDate(p.paymentDate)}</TableCell>
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((p.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(p as any)}><Pencil className="h-3.5 w-3.5" /></Button>
