@@ -3,13 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Project Management System API for Wind/Solar Energy Forecasting Company
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: contracts
+    description: Sales contract management
+  - name: payments
+    description: Payment/receivables management
+  - name: invoices
+    description: Invoice management
+  - name: work-orders
+    description: Work order (开工申请) management
+  - name: weather-services
+    description: Weather forecast service management
+  - name: receivables
+    description: Receivable tracking
+  - name: dashboard
+    description: Dashboard and summary views
+
 paths:
   /healthz:
     get:
@@ -24,6 +39,973 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ============ CONTRACTS (合同) ============
+  /contracts:
+    get:
+      operationId: listContracts
+      tags: [contracts]
+      summary: List contracts
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: group
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: station
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: contractType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of contracts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contract"
+    post:
+      operationId: createContract
+      tags: [contracts]
+      summary: Create a contract
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateContractBody"
+      responses:
+        "201":
+          description: Contract created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+
+  /contracts/{id}:
+    get:
+      operationId: getContract
+      tags: [contracts]
+      summary: Get contract by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Contract found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateContract
+      tags: [contracts]
+      summary: Update contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContractBody"
+      responses:
+        "200":
+          description: Contract updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contract"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteContract
+      tags: [contracts]
+      summary: Delete contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /contracts/{id}/change-logs:
+    get:
+      operationId: getContractChangeLogs
+      tags: [contracts]
+      summary: Get change history for a contract
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Change logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContractChangeLog"
+
+  /contracts/summary:
+    get:
+      operationId: getContractSummary
+      tags: [contracts]
+      summary: Get contract summary statistics
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Summary statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractSummary"
+
+  # ============ PAYMENTS (回款) ============
+  /payments:
+    get:
+      operationId: listPayments
+      tags: [payments]
+      summary: List payments
+      parameters:
+        - name: contractId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: contractNo
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: quarter
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: month
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: payer
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+    post:
+      operationId: createPayment
+      tags: [payments]
+      summary: Record a payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentBody"
+      responses:
+        "201":
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      tags: [payments]
+      summary: Get payment by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "404":
+          description: Not found
+    patch:
+      operationId: updatePayment
+      tags: [payments]
+      summary: Update payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePaymentBody"
+      responses:
+        "200":
+          description: Payment updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+    delete:
+      operationId: deletePayment
+      tags: [payments]
+      summary: Delete payment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /payments/summary:
+    get:
+      operationId: getPaymentSummary
+      tags: [payments]
+      summary: Payment summary statistics
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentSummary"
+
+  /payments/payer-contracts:
+    get:
+      operationId: getPayerContracts
+      tags: [payments]
+      summary: Get all contracts associated with a payer
+      parameters:
+        - name: payer
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Contracts for payer
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contract"
+
+  # ============ INVOICES (发票) ============
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List invoices
+      parameters:
+        - name: contractId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: contractNo
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: month
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: overdueOnly
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInvoiceBody"
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get invoice by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateInvoiceBody"
+      responses:
+        "200":
+          description: Invoice updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+    delete:
+      operationId: deleteInvoice
+      tags: [invoices]
+      summary: Delete invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /invoices/alerts:
+    get:
+      operationId: getInvoiceAlerts
+      tags: [invoices]
+      summary: Get invoices with overdue payment alerts
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceAlert"
+
+  # ============ WORK ORDERS (开工申请) ============
+  /work-orders:
+    get:
+      operationId: listWorkOrders
+      tags: [work-orders]
+      summary: List work orders
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: startDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: endDate
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: group
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: station
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: noContract
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: List of work orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkOrder"
+    post:
+      operationId: createWorkOrder
+      tags: [work-orders]
+      summary: Create a work order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkOrderBody"
+      responses:
+        "201":
+          description: Work order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+
+  /work-orders/{id}:
+    get:
+      operationId: getWorkOrder
+      tags: [work-orders]
+      summary: Get work order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Work order found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateWorkOrder
+      tags: [work-orders]
+      summary: Update work order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWorkOrderBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+    delete:
+      operationId: deleteWorkOrder
+      tags: [work-orders]
+      summary: Delete work order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ============ WEATHER SERVICES (数值天气) ============
+  /weather-services:
+    get:
+      operationId: listWeatherServices
+      tags: [weather-services]
+      summary: List weather forecast services
+      parameters:
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: group
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: station
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: expiryAlert
+          in: query
+          description: "Filter by expiry alert: 1m, 2m, 3m, expired"
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of weather services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeatherService"
+    post:
+      operationId: createWeatherService
+      tags: [weather-services]
+      summary: Create a weather service record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWeatherServiceBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherService"
+
+  /weather-services/{id}:
+    get:
+      operationId: getWeatherService
+      tags: [weather-services]
+      summary: Get weather service by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherService"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateWeatherService
+      tags: [weather-services]
+      summary: Update weather service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWeatherServiceBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherService"
+    delete:
+      operationId: deleteWeatherService
+      tags: [weather-services]
+      summary: Delete weather service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /weather-services/alerts:
+    get:
+      operationId: getWeatherServiceAlerts
+      tags: [weather-services]
+      summary: Get weather services with expiry alerts
+      responses:
+        "200":
+          description: Alert list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WeatherServiceAlert"
+
+  # ============ RECEIVABLES (应收款) ============
+  /receivables:
+    get:
+      operationId: listReceivables
+      tags: [receivables]
+      summary: List receivables
+      parameters:
+        - name: contractId
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: contractNo
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: month
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: province
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: overdueOnly
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: uninvoiced
+          in: query
+          schema:
+            type: ["boolean", "null"]
+        - name: undelivered
+          in: query
+          schema:
+            type: ["boolean", "null"]
+      responses:
+        "200":
+          description: List of receivables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Receivable"
+    post:
+      operationId: createReceivable
+      tags: [receivables]
+      summary: Create receivable record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReceivableBody"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receivable"
+
+  /receivables/{id}:
+    get:
+      operationId: getReceivable
+      tags: [receivables]
+      summary: Get receivable by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receivable"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateReceivable
+      tags: [receivables]
+      summary: Update receivable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReceivableBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receivable"
+    delete:
+      operationId: deleteReceivable
+      tags: [receivables]
+      summary: Delete receivable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /receivables/alerts:
+    get:
+      operationId: getReceivableAlerts
+      tags: [receivables]
+      summary: Get overdue receivable alerts
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReceivableAlert"
+
+  # ============ DASHBOARD ============
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard overview summary
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/aging:
+    get:
+      operationId: getAgingAnalysis
+      tags: [dashboard]
+      summary: Get receivables aging analysis
+      responses:
+        "200":
+          description: Aging buckets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgingAnalysis"
+
+  /dashboard/monthly-stats:
+    get:
+      operationId: getMonthlyStats
+      tags: [dashboard]
+      summary: Get monthly receivables/payment stats
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+      responses:
+        "200":
+          description: Monthly stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyStat"
+
+  /dashboard/project-management:
+    get:
+      operationId: getProjectManagement
+      tags: [dashboard]
+      summary: Get project management summary (module 10)
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: month
+          in: query
+          schema:
+            type: ["integer", "null"]
+        - name: salesManager
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Project management data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectManagementSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +1016,1084 @@ components:
       required:
         - status
 
+    # ============ CONTRACT ============
+    Contract:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractNo:
+          type: string
+        contractName:
+          type: string
+        contractType:
+          type: string
+        status:
+          type: string
+        customer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        signDate:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        amountWithTax:
+          type: number
+        amountWithoutTax:
+          type: number
+        productType:
+          type: string
+        workOrderNo:
+          type: ["string", "null"]
+        afterSaleNo:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isSpecial:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - contractNo
+        - contractName
+        - contractType
+        - status
+        - customer
+        - province
+        - group
+        - station
+        - salesManager
+        - amountWithTax
+        - amountWithoutTax
+        - productType
+        - isSpecial
+        - createdAt
+        - updatedAt
+
+    CreateContractBody:
+      type: object
+      properties:
+        contractNo:
+          type: string
+        contractName:
+          type: string
+        contractType:
+          type: string
+        status:
+          type: string
+        customer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        signDate:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        amountWithTax:
+          type: number
+        amountWithoutTax:
+          type: number
+        productType:
+          type: string
+        workOrderNo:
+          type: ["string", "null"]
+        afterSaleNo:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isSpecial:
+          type: boolean
+      required:
+        - contractNo
+        - contractName
+        - contractType
+        - status
+        - customer
+        - province
+        - group
+        - station
+        - salesManager
+        - amountWithTax
+        - amountWithoutTax
+        - productType
+
+    UpdateContractBody:
+      type: object
+      properties:
+        contractNo:
+          type: ["string", "null"]
+        contractName:
+          type: ["string", "null"]
+        contractType:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        customer:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        group:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        salesManager:
+          type: ["string", "null"]
+        signDate:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        endDate:
+          type: ["string", "null"]
+        amountWithTax:
+          type: ["number", "null"]
+        amountWithoutTax:
+          type: ["number", "null"]
+        productType:
+          type: ["string", "null"]
+        workOrderNo:
+          type: ["string", "null"]
+        afterSaleNo:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isSpecial:
+          type: ["boolean", "null"]
+
+    ContractChangeLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: integer
+        fieldName:
+          type: string
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: ["string", "null"]
+        changedAt:
+          type: string
+        changedBy:
+          type: ["string", "null"]
+      required:
+        - id
+        - contractId
+        - fieldName
+        - changedAt
+
+    ContractSummary:
+      type: object
+      properties:
+        totalWithTax:
+          type: number
+        totalWithoutTax:
+          type: number
+        count:
+          type: integer
+        byProvince:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionStat"
+        byManager:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionStat"
+        byProductType:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionStat"
+      required:
+        - totalWithTax
+        - totalWithoutTax
+        - count
+        - byProvince
+        - byManager
+        - byProductType
+
+    # ============ PAYMENT ============
+    Payment:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        payer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        paymentDate:
+          type: string
+        amount:
+          type: number
+        paymentRatio:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - payer
+        - province
+        - group
+        - station
+        - salesManager
+        - paymentDate
+        - amount
+        - createdAt
+        - updatedAt
+
+    CreatePaymentBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        payer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        paymentDate:
+          type: string
+        amount:
+          type: number
+        notes:
+          type: ["string", "null"]
+      required:
+        - payer
+        - province
+        - group
+        - station
+        - salesManager
+        - paymentDate
+        - amount
+
+    UpdatePaymentBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        payer:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        group:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        salesManager:
+          type: ["string", "null"]
+        paymentDate:
+          type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PaymentSummary:
+      type: object
+      properties:
+        totalAmount:
+          type: number
+        count:
+          type: integer
+        byYear:
+          type: array
+          items:
+            $ref: "#/components/schemas/YearStat"
+        byQuarter:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuarterStat"
+        byManager:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionStat"
+        byProvince:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionStat"
+      required:
+        - totalAmount
+        - count
+        - byYear
+        - byQuarter
+        - byManager
+        - byProvince
+
+    # ============ INVOICE ============
+    Invoice:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        invoiceDate:
+          type: string
+        amountWithTax:
+          type: number
+        amountWithoutTax:
+          type: number
+        taxRate:
+          type: number
+        expectedPaymentDate:
+          type: ["string", "null"]
+        expectedPaymentAmount:
+          type: ["number", "null"]
+        actualPaymentDate:
+          type: ["string", "null"]
+        actualPaymentAmount:
+          type: ["number", "null"]
+        voidDate:
+          type: ["string", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        outstandingAmount:
+          type: number
+        isOverdue:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - customer
+        - province
+        - station
+        - salesManager
+        - invoiceDate
+        - amountWithTax
+        - amountWithoutTax
+        - taxRate
+        - status
+        - outstandingAmount
+        - isOverdue
+        - createdAt
+        - updatedAt
+
+    CreateInvoiceBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        invoiceDate:
+          type: string
+        amountWithTax:
+          type: number
+        amountWithoutTax:
+          type: number
+        taxRate:
+          type: number
+        expectedPaymentDate:
+          type: ["string", "null"]
+        expectedPaymentAmount:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - customer
+        - province
+        - station
+        - salesManager
+        - invoiceDate
+        - amountWithTax
+        - amountWithoutTax
+        - taxRate
+
+    UpdateInvoiceBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        invoiceNo:
+          type: ["string", "null"]
+        customer:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        salesManager:
+          type: ["string", "null"]
+        invoiceDate:
+          type: ["string", "null"]
+        amountWithTax:
+          type: ["number", "null"]
+        amountWithoutTax:
+          type: ["number", "null"]
+        taxRate:
+          type: ["number", "null"]
+        expectedPaymentDate:
+          type: ["string", "null"]
+        expectedPaymentAmount:
+          type: ["number", "null"]
+        actualPaymentDate:
+          type: ["string", "null"]
+        actualPaymentAmount:
+          type: ["number", "null"]
+        voidDate:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    InvoiceAlert:
+      type: object
+      properties:
+        invoice:
+          $ref: "#/components/schemas/Invoice"
+        daysPastDue:
+          type: integer
+        outstandingAmount:
+          type: number
+      required:
+        - invoice
+        - daysPastDue
+        - outstandingAmount
+
+    # ============ WORK ORDER ============
+    WorkOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+        workOrderNo:
+          type: string
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        productType:
+          type: string
+        applyDate:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        hasContract:
+          type: boolean
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - workOrderNo
+        - customer
+        - province
+        - group
+        - station
+        - salesManager
+        - productType
+        - applyDate
+        - hasContract
+        - createdAt
+        - updatedAt
+
+    CreateWorkOrderBody:
+      type: object
+      properties:
+        workOrderNo:
+          type: string
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        productType:
+          type: string
+        applyDate:
+          type: string
+        startDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - workOrderNo
+        - customer
+        - province
+        - group
+        - station
+        - salesManager
+        - productType
+        - applyDate
+
+    UpdateWorkOrderBody:
+      type: object
+      properties:
+        workOrderNo:
+          type: ["string", "null"]
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        group:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        salesManager:
+          type: ["string", "null"]
+        productType:
+          type: ["string", "null"]
+        applyDate:
+          type: ["string", "null"]
+        startDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    # ============ WEATHER SERVICE ============
+    WeatherService:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        workOrderId:
+          type: ["integer", "null"]
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        serviceStartDate:
+          type: ["string", "null"]
+        serviceEndDate:
+          type: ["string", "null"]
+        status:
+          type: string
+        stoppedDate:
+          type: ["string", "null"]
+        overduedMonths:
+          type: ["integer", "null"]
+        outageMonths:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        expiryAlertLevel:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - province
+        - group
+        - station
+        - status
+        - createdAt
+        - updatedAt
+
+    CreateWeatherServiceBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        workOrderId:
+          type: ["integer", "null"]
+        province:
+          type: string
+        group:
+          type: string
+        station:
+          type: string
+        serviceStartDate:
+          type: ["string", "null"]
+        serviceEndDate:
+          type: ["string", "null"]
+        status:
+          type: string
+        stoppedDate:
+          type: ["string", "null"]
+        outageMonths:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - province
+        - group
+        - station
+        - status
+
+    UpdateWeatherServiceBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        workOrderId:
+          type: ["integer", "null"]
+        province:
+          type: ["string", "null"]
+        group:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        serviceStartDate:
+          type: ["string", "null"]
+        serviceEndDate:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        stoppedDate:
+          type: ["string", "null"]
+        outageMonths:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    WeatherServiceAlert:
+      type: object
+      properties:
+        service:
+          $ref: "#/components/schemas/WeatherService"
+        alertLevel:
+          type: string
+        daysUntilExpiry:
+          type: ["integer", "null"]
+        overdueMonths:
+          type: ["integer", "null"]
+      required:
+        - service
+        - alertLevel
+
+    # ============ RECEIVABLE ============
+    Receivable:
+      type: object
+      properties:
+        id:
+          type: integer
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        receivableType:
+          type: string
+        amount:
+          type: number
+        expectedDate:
+          type: ["string", "null"]
+        deliveryDate:
+          type: ["string", "null"]
+        acceptanceDate:
+          type: ["string", "null"]
+        invoiceDate:
+          type: ["string", "null"]
+        actualPaymentDate:
+          type: ["string", "null"]
+        daysLate:
+          type: ["integer", "null"]
+        status:
+          type: string
+        isBadDebt:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - customer
+        - province
+        - station
+        - salesManager
+        - receivableType
+        - amount
+        - status
+        - isBadDebt
+        - createdAt
+        - updatedAt
+
+    CreateReceivableBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: string
+        province:
+          type: string
+        station:
+          type: string
+        salesManager:
+          type: string
+        receivableType:
+          type: string
+        amount:
+          type: number
+        expectedDate:
+          type: ["string", "null"]
+        deliveryDate:
+          type: ["string", "null"]
+        acceptanceDate:
+          type: ["string", "null"]
+        invoiceDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+      required:
+        - customer
+        - province
+        - station
+        - salesManager
+        - receivableType
+        - amount
+
+    UpdateReceivableBody:
+      type: object
+      properties:
+        contractId:
+          type: ["integer", "null"]
+        contractNo:
+          type: ["string", "null"]
+        customer:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        station:
+          type: ["string", "null"]
+        salesManager:
+          type: ["string", "null"]
+        receivableType:
+          type: ["string", "null"]
+        amount:
+          type: ["number", "null"]
+        expectedDate:
+          type: ["string", "null"]
+        deliveryDate:
+          type: ["string", "null"]
+        acceptanceDate:
+          type: ["string", "null"]
+        invoiceDate:
+          type: ["string", "null"]
+        actualPaymentDate:
+          type: ["string", "null"]
+        isBadDebt:
+          type: ["boolean", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ReceivableAlert:
+      type: object
+      properties:
+        receivable:
+          $ref: "#/components/schemas/Receivable"
+        alertType:
+          type: string
+        daysLate:
+          type: ["integer", "null"]
+      required:
+        - receivable
+        - alertType
+
+    # ============ DASHBOARD ============
+    DashboardSummary:
+      type: object
+      properties:
+        totalContractValue:
+          type: number
+        totalPaymentsReceived:
+          type: number
+        totalOutstanding:
+          type: number
+        totalInvoiced:
+          type: number
+        overdueCount:
+          type: integer
+        weatherServicesExpiringSoon:
+          type: integer
+        workOrdersWithoutContract:
+          type: integer
+        afterSaleAlertsCount:
+          type: integer
+        currentYearContractValue:
+          type: number
+        currentYearPayments:
+          type: number
+        recentAlerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertItem"
+      required:
+        - totalContractValue
+        - totalPaymentsReceived
+        - totalOutstanding
+        - totalInvoiced
+        - overdueCount
+        - weatherServicesExpiringSoon
+        - workOrdersWithoutContract
+        - afterSaleAlertsCount
+        - currentYearContractValue
+        - currentYearPayments
+        - recentAlerts
+
+    AlertItem:
+      type: object
+      properties:
+        type:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+        relatedId:
+          type: ["integer", "null"]
+      required:
+        - type
+        - message
+        - severity
+
+    AgingAnalysis:
+      type: object
+      properties:
+        current:
+          type: number
+        days30:
+          type: number
+        days60:
+          type: number
+        days90:
+          type: number
+        over90:
+          type: number
+        total:
+          type: number
+      required:
+        - current
+        - days30
+        - days60
+        - days90
+        - over90
+        - total
+
+    MonthlyStat:
+      type: object
+      properties:
+        month:
+          type: integer
+        year:
+          type: integer
+        payments:
+          type: number
+        invoiced:
+          type: number
+        receivables:
+          type: number
+      required:
+        - month
+        - year
+        - payments
+        - invoiced
+        - receivables
+
+    ProjectManagementSummary:
+      type: object
+      properties:
+        invoicedExpiredWarranty:
+          type: number
+        invoicedProgressReceivable:
+          type: number
+        uninvoicedProgressReceivable:
+          type: number
+        invoicedUnexpiredWarranty:
+          type: number
+        invoicedUnexpiredReceivable:
+          type: number
+        uninvoicedUnexpiredReceivable:
+          type: number
+        fullyInvoicedActualReceivable:
+          type: number
+        partiallyInvoicedActualReceivable:
+          type: number
+        uninvoicedActualReceivable:
+          type: number
+        noContractExpectedReceivable:
+          type: number
+        noServiceContractExpected:
+          type: number
+        totalInvoicedReceivable:
+          type: number
+        invoicedBadDebt:
+          type: number
+        netInvoicedReceivable:
+          type: number
+        totalBadDebt:
+          type: number
+      required:
+        - invoicedExpiredWarranty
+        - invoicedProgressReceivable
+        - uninvoicedProgressReceivable
+        - invoicedUnexpiredWarranty
+        - invoicedUnexpiredReceivable
+        - uninvoicedUnexpiredReceivable
+        - fullyInvoicedActualReceivable
+        - partiallyInvoicedActualReceivable
+        - uninvoicedActualReceivable
+        - noContractExpectedReceivable
+        - noServiceContractExpected
+        - totalInvoicedReceivable
+        - invoicedBadDebt
+        - netInvoicedReceivable
+        - totalBadDebt
+
+    # ============ SHARED ============
+    DimensionStat:
+      type: object
+      properties:
+        name:
+          type: string
+        amount:
+          type: number
+        count:
+          type: integer
+      required:
+        - name
+        - amount
+        - count
+
+    YearStat:
+      type: object
+      properties:
+        year:
+          type: integer
+        amount:
+          type: number
+        count:
+          type: integer
+      required:
+        - year
+        - amount
+        - count
+
+    QuarterStat:
+      type: object
+      properties:
+        year:
+          type: integer
+        quarter:
+          type: integer
+        amount:
+          type: number
+        count:
+          type: integer
+      required:
+        - year
+        - quarter
+        - amount
+        - count
