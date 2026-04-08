@@ -7,7 +7,8 @@ import {
   Wrench, 
   CloudRain, 
   Banknote,
-  LineChart
+  LineChart,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: "/weather-services", label: "数值天气预报", icon: CloudRain },
   { href: "/receivables", label: "应收款管理", icon: Banknote },
   { href: "/project-management", label: "项目管理", icon: LineChart },
+  { href: "/statistics", label: "统计分析", icon: BarChart3 },
 ];
 
 export function Sidebar() {

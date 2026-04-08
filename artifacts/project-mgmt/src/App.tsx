@@ -13,6 +13,7 @@ import WorkOrders from "@/pages/WorkOrders";
 import WeatherServices from "@/pages/WeatherServices";
 import Receivables from "@/pages/Receivables";
 import ProjectManagement from "@/pages/ProjectManagement";
+import Statistics from "@/pages/Statistics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/weather-services" component={WeatherServices} />
         <Route path="/receivables" component={Receivables} />
         <Route path="/project-management" component={ProjectManagement} />
+        <Route path="/statistics" component={Statistics} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

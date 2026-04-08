@@ -33,6 +33,7 @@ A comprehensive project management system for a wind/solar energy forecasting co
 | 数值天气 | 08 | Weather forecast service expiry alerts (1m/2m/3m/expired), outage tracking |
 | 应收款管理 | 09 | Receivable tracking, delivery/acceptance dates, late payment calculation |
 | 项目管理 | 10 | Dashboard, aging analysis, 14 financial metrics, bad debt tracking |
+| 统计分析 | — | Cross-module analytics: annual overview, contract/payment/invoice/receivables analysis, weather expiry, manager rankings, contract payment tracking |
 
 ## Database Tables
 
