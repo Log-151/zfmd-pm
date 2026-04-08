@@ -497,7 +497,7 @@ function ReceivablesTab() {
     ]);
   };
 
-  const AGING_ORDER = ["未到期","1-30天","31-60天","61-90天","90天以上"];
+  const AGING_ORDER = ["未到期","1-30天","31-60天","61-90天","90天以上","已回款"];
   const sortedData = useMemo(() => {
     if (groupBy !== "aging") return data;
     return [...data].sort((a: any, b: any) => AGING_ORDER.indexOf(a.label) - AGING_ORDER.indexOf(b.label));

@@ -240,10 +240,12 @@ router.get("/stats/receivables", async (req, res): Promise<void> => {
     labelExpr = "TO_CHAR(expected_date::date, 'YYYY-MM')";
   } else if (groupBy === "aging") {
     groupExpr = `CASE
-      WHEN days_late IS NULL OR days_late <= 0 THEN '未到期'
-      WHEN days_late <= 30 THEN '1-30天'
-      WHEN days_late <= 60 THEN '31-60天'
-      WHEN days_late <= 90 THEN '61-90天'
+      WHEN status = '已回款' THEN '已回款'
+      WHEN expected_date IS NULL THEN '未到期'
+      WHEN expected_date::date >= CURRENT_DATE THEN '未到期'
+      WHEN (CURRENT_DATE - expected_date::date) <= 30 THEN '1-30天'
+      WHEN (CURRENT_DATE - expected_date::date) <= 60 THEN '31-60天'
+      WHEN (CURRENT_DATE - expected_date::date) <= 90 THEN '61-90天'
       ELSE '90天以上'
     END`;
     labelExpr = groupExpr;
@@ -343,20 +345,20 @@ router.get("/stats/contract-payments", async (req, res): Promise<void> => {
     return;
   }
 
-  const [contract] = await db.execute(sql.raw(`
+  const contractResult = await db.execute(sql.raw(`
     SELECT contract_no, contract_name, customer, amount_with_tax, amount_without_tax, status
     FROM contracts WHERE contract_no = '${contractNo.replace(/'/g, "''")}'
     LIMIT 1
   `));
 
-  const paymentsRows = await db.execute(sql.raw(`
+  const paymentsResult = await db.execute(sql.raw(`
     SELECT payment_date, amount::numeric, payer, notes
     FROM payments WHERE contract_no = '${contractNo.replace(/'/g, "''")}'
     ORDER BY payment_date ASC
   `));
 
-  const contractRow = (contract as any).rows?.[0] ?? (contract as any);
-  const payments = (paymentsRows as any).rows ?? paymentsRows;
+  const contractRow = (contractResult as any).rows?.[0] ?? null;
+  const payments = (paymentsResult as any).rows ?? [];
 
   const totalPaid = payments.reduce((s: number, p: any) => s + parseFloat(p.amount || "0"), 0);
   const contractAmount = parseFloat(String(contractRow?.amount_with_tax ?? "0"));
