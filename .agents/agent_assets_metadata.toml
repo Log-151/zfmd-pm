@@ -6,3 +6,9 @@ id = "lK6Ts0AyhlUSTQ3Mw9xj2"
 uri = "file://开发策划书_兆方美迪项目管理系统.md"
 type = "text"
 title = "开发策划书 · 兆方美迪项目管理系统"
+
+[[outputs]]
+id = "pDv1qtM_1nQt7sPufXNSR"
+uri = "file://DEPLOY.md"
+type = "text"
+title = "部署指南 · 兆方美迪项目管理系统"

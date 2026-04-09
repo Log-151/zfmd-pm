@@ -18,12 +18,13 @@ export default function Dashboard() {
     query: { queryKey: getGetMonthlyStatsQueryKey() }
   });
 
+  // 账龄：发票开出日期至今的天数，统计各区间未收款金额
   const chartData = [
-    { name: '未到期', value: agingData?.current || 0 },
-    { name: '30天内', value: agingData?.days30 || 0 },
-    { name: '31-60天', value: agingData?.days60 || 0 },
-    { name: '61-90天', value: agingData?.days90 || 0 },
-    { name: '90天以上', value: agingData?.over90 || 0 },
+    { name: '30天以内', value: agingData?.current || 0 },
+    { name: '31-60天', value: agingData?.days30 || 0 },
+    { name: '61-90天', value: agingData?.days60 || 0 },
+    { name: '91-180天', value: agingData?.days90 || 0 },
+    { name: '180天以上', value: agingData?.over90 || 0 },
   ];
 
   const monthlyChartData = monthlyStats?.map(stat => ({

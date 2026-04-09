@@ -20,7 +20,7 @@ export function useCustomFieldDefs(module: string) {
   const fetchDefs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/field-definitions?module=${module}`);
+      const res = await fetch(`${BASE}/api/field-definitions?module=${module}`, { credentials: "include" });
       const data = await res.json();
       setDefs(data);
     } catch {
@@ -35,6 +35,7 @@ export function useCustomFieldDefs(module: string) {
   const addDef = async (def: { fieldLabel: string; fieldType: string; options?: string; isRequired: boolean }) => {
     const res = await fetch(`${BASE}/api/field-definitions`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ module, ...def }),
     });
@@ -43,7 +44,7 @@ export function useCustomFieldDefs(module: string) {
   };
 
   const deleteDef = async (id: number) => {
-    await fetch(`${BASE}/api/field-definitions/${id}`, { method: "DELETE" });
+    await fetch(`${BASE}/api/field-definitions/${id}`, { method: "DELETE", credentials: "include" });
     await fetchDefs();
   };
 

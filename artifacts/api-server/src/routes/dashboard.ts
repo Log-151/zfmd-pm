@@ -112,6 +112,8 @@ router.get("/dashboard/aging", async (_req, res): Promise<void> => {
   const now = new Date();
   const invoices = await db.select().from(invoicesTable);
 
+  // 账龄 = 发票开出日期 至今天的天数，统计各账龄区间的未收款金额
+  // buckets: current=0-30天, days30=31-60天, days60=61-90天, days90=91-180天, over90=180天以上
   const aging = { current: 0, days30: 0, days60: 0, days90: 0, over90: 0, total: 0 };
 
   for (const inv of invoices) {
@@ -121,16 +123,17 @@ router.get("/dashboard/aging", async (_req, res): Promise<void> => {
 
     aging.total += outstanding;
 
-    if (!inv.expectedPaymentDate) {
+    const baseDate = inv.invoiceDate || inv.expectedPaymentDate;
+    if (!baseDate) {
       aging.current += outstanding;
       continue;
     }
 
-    const daysPast = Math.floor((now.getTime() - new Date(inv.expectedPaymentDate).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysPast <= 0) aging.current += outstanding;
-    else if (daysPast <= 30) aging.days30 += outstanding;
-    else if (daysPast <= 60) aging.days60 += outstanding;
-    else if (daysPast <= 90) aging.days90 += outstanding;
+    const daysOld = Math.floor((now.getTime() - new Date(baseDate).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysOld <= 30) aging.current += outstanding;
+    else if (daysOld <= 60) aging.days30 += outstanding;
+    else if (daysOld <= 90) aging.days60 += outstanding;
+    else if (daysOld <= 180) aging.days90 += outstanding;
     else aging.over90 += outstanding;
   }
 

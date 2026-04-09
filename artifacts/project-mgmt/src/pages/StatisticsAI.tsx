@@ -61,6 +61,7 @@ export function AISettingsDialog({ open, onClose, onSaved }: AISettingsDialogPro
     try {
       const res = await fetch(`${BASE}/api/ai/analyze`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiBase: cfg.apiBase,
@@ -287,6 +288,7 @@ ${contextData}
     try {
       const res = await fetch(`${BASE}/api/ai/analyze`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           apiBase: cfg.apiBase,
@@ -478,4 +480,3 @@ ${contextData}
   );
 }
 
-export { loadConfig, type AIConfig };

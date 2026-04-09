@@ -9,6 +9,8 @@ import { requireAuth } from "./middleware/auth";
 
 const app: Express = express();
 
+const isProd = process.env["NODE_ENV"] === "production";
+
 app.use(
   pinoHttp({
     logger,
@@ -36,12 +38,30 @@ app.use(
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
-      secure: false,
+      // Enable secure cookies in production (requires HTTPS)
+      secure: isProd,
     },
   }),
 );
 
 app.use("/api", authRouter);
 app.use("/api", requireAuth, router);
+
+// Production: serve the built frontend SPA and act as a single unified server
+if (isProd) {
+  const { fileURLToPath } = await import("url");
+  const { dirname, join } = await import("path");
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  // Dist is at: artifacts/api-server/dist/
+  // Frontend built to: artifacts/project-mgmt/dist/public/
+  const frontendDist = join(__dirname, "..", "..", "project-mgmt", "dist", "public");
+
+  app.use(express.static(frontendDist));
+
+  // SPA fallback — non-API routes serve index.html (client-side routing)
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(join(frontendDist, "index.html"));
+  });
+}
 
 export default app;

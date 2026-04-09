@@ -25,7 +25,7 @@ function useStats<T>(path: string, params: Record<string, string>, deps: unknown
     setLoading(true);
     try {
       const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => !!v)).toString();
-      const res = await fetch(`${BASE}/api/stats/${path}?${qs}`);
+      const res = await fetch(`${BASE}/api/stats/${path}?${qs}`, { credentials: "include" });
       const json = await res.json();
       setData(json);
     } catch { setData([]); }
@@ -100,13 +100,14 @@ async function buildContextData(): Promise<string> {
   const lines: string[] = [`当前分析年份：${year}年`, ""];
 
   try {
+    const creds: RequestInit = { credentials: "include" };
     const [monthlyRes, contractsRes, paymentsRes, invoicesRes, receivablesRes, managersRes] = await Promise.allSettled([
-      fetch(`${base}/api/stats/monthly-report?year=${year}`).then(r => r.json()),
-      fetch(`${base}/api/stats/contracts?groupBy=year`).then(r => r.json()),
-      fetch(`${base}/api/stats/payments?groupBy=year`).then(r => r.json()),
-      fetch(`${base}/api/stats/invoices?groupBy=year&year=${year}`).then(r => r.json()),
-      fetch(`${base}/api/stats/receivables?groupBy=aging`).then(r => r.json()),
-      fetch(`${base}/api/stats/manager-ranking?year=${year}`).then(r => r.json()),
+      fetch(`${base}/api/stats/monthly-report?year=${year}`, creds).then(r => r.json()),
+      fetch(`${base}/api/stats/contracts?groupBy=year`, creds).then(r => r.json()),
+      fetch(`${base}/api/stats/payments?groupBy=year`, creds).then(r => r.json()),
+      fetch(`${base}/api/stats/invoices?groupBy=year&year=${year}`, creds).then(r => r.json()),
+      fetch(`${base}/api/stats/receivables?groupBy=aging`, creds).then(r => r.json()),
+      fetch(`${base}/api/stats/manager-ranking?year=${year}`, creds).then(r => r.json()),
     ]);
 
     if (monthlyRes.status === "fulfilled") {
@@ -624,7 +625,7 @@ function ReceivablesTab() {
     ]);
   };
 
-  const AGING_ORDER = ["未到期","1-30天","31-60天","61-90天","90天以上","已回款"];
+  const AGING_ORDER = ["30天以内","31-60天","61-90天","91-180天","180天以上","已回款"];
   const sortedData = useMemo(() => {
     if (groupBy !== "aging") return data;
     return [...data].sort((a: any, b: any) => AGING_ORDER.indexOf(a.label) - AGING_ORDER.indexOf(b.label));
@@ -888,7 +889,7 @@ function ContractTrackTab() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BASE}/api/stats/contract-payments?contractNo=${encodeURIComponent(input.trim())}`);
+      const res = await fetch(`${BASE}/api/stats/contract-payments?contractNo=${encodeURIComponent(input.trim())}`, { credentials: "include" });
       const data = await res.json();
       setResult(data);
       setContractNo(input.trim());

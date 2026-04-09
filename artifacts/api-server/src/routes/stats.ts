@@ -239,14 +239,15 @@ router.get("/stats/receivables", async (req, res): Promise<void> => {
     groupExpr = "DATE_TRUNC('month', expected_date::date)";
     labelExpr = "TO_CHAR(expected_date::date, 'YYYY-MM')";
   } else if (groupBy === "aging") {
+    // 账龄基准：优先使用 invoice_date（开票日期），否则用 expected_date
     groupExpr = `CASE
       WHEN status = '已回款' THEN '已回款'
-      WHEN expected_date IS NULL THEN '未到期'
-      WHEN expected_date::date >= CURRENT_DATE THEN '未到期'
-      WHEN (CURRENT_DATE - expected_date::date) <= 30 THEN '1-30天'
-      WHEN (CURRENT_DATE - expected_date::date) <= 60 THEN '31-60天'
-      WHEN (CURRENT_DATE - expected_date::date) <= 90 THEN '61-90天'
-      ELSE '90天以上'
+      WHEN COALESCE(invoice_date, expected_date) IS NULL THEN '30天以内'
+      WHEN (CURRENT_DATE - COALESCE(invoice_date, expected_date)::date) <= 30 THEN '30天以内'
+      WHEN (CURRENT_DATE - COALESCE(invoice_date, expected_date)::date) <= 60 THEN '31-60天'
+      WHEN (CURRENT_DATE - COALESCE(invoice_date, expected_date)::date) <= 90 THEN '61-90天'
+      WHEN (CURRENT_DATE - COALESCE(invoice_date, expected_date)::date) <= 180 THEN '91-180天'
+      ELSE '180天以上'
     END`;
     labelExpr = groupExpr;
   } else {
