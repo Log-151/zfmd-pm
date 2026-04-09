@@ -6,13 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, Search, RefreshCw, TrendingUp, ArrowDown, ArrowUp } from "lucide-react";
+import { Download, Search, RefreshCw, TrendingUp, ArrowDown, ArrowUp, Settings, Bot } from "lucide-react";
 import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell,
 } from "recharts";
+import { AISettingsDialog, AIAnalysisPanel } from "./StatisticsAI";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -92,15 +93,131 @@ function YearSelector({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+/* ─── 统计数据上下文构建 ──────────────────────────── */
+async function buildContextData(): Promise<string> {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const year = new Date().getFullYear();
+  const lines: string[] = [`当前分析年份：${year}年`, ""];
+
+  try {
+    const [monthlyRes, contractsRes, paymentsRes, invoicesRes, receivablesRes, managersRes] = await Promise.allSettled([
+      fetch(`${base}/api/stats/monthly-report?year=${year}`).then(r => r.json()),
+      fetch(`${base}/api/stats/contracts?groupBy=year`).then(r => r.json()),
+      fetch(`${base}/api/stats/payments?groupBy=year`).then(r => r.json()),
+      fetch(`${base}/api/stats/invoices?groupBy=year&year=${year}`).then(r => r.json()),
+      fetch(`${base}/api/stats/receivables?groupBy=aging`).then(r => r.json()),
+      fetch(`${base}/api/stats/manager-ranking?year=${year}`).then(r => r.json()),
+    ]);
+
+    if (monthlyRes.status === "fulfilled") {
+      const monthly = monthlyRes.value as any[];
+      const totals = {
+        payments: monthly.reduce((s, r) => s + r.totalPayments, 0),
+        invoiced: monthly.reduce((s, r) => s + r.totalInvoiced, 0),
+        receivable: monthly.reduce((s, r) => s + r.totalReceivable, 0),
+        contracts: monthly.reduce((s, r) => s + r.totalContracts, 0),
+        overdueReceivable: monthly.reduce((s, r) => s + r.overdueReceivable, 0),
+      };
+      lines.push(`【年度综合 - ${year}年】`);
+      lines.push(`年度回款总额：${(totals.payments / 10000).toFixed(2)}万元`);
+      lines.push(`年度开票总额：${(totals.invoiced / 10000).toFixed(2)}万元`);
+      lines.push(`年度新签合同：${(totals.contracts / 10000).toFixed(2)}万元`);
+      lines.push(`年度应收账款：${(totals.receivable / 10000).toFixed(2)}万元`);
+      lines.push(`年度逾期应收：${(totals.overdueReceivable / 10000).toFixed(2)}万元`);
+      lines.push("");
+      lines.push("月度回款数据：");
+      for (const m of monthly) {
+        if (m.totalPayments > 0 || m.totalInvoiced > 0) {
+          lines.push(`  ${m.month}：回款 ${(m.totalPayments / 10000).toFixed(1)}万，开票 ${(m.totalInvoiced / 10000).toFixed(1)}万，新签合同 ${(m.totalContracts / 10000).toFixed(1)}万`);
+        }
+      }
+      lines.push("");
+    }
+
+    if (contractsRes.status === "fulfilled") {
+      const contracts = contractsRes.value as any[];
+      lines.push("【合同分析 - 按年度】");
+      for (const r of contracts.slice(-5)) {
+        lines.push(`  ${r.label}年：${r.count}笔合同，含税总额 ${(r.totalWithTax / 10000).toFixed(1)}万元`);
+      }
+      lines.push("");
+    }
+
+    if (paymentsRes.status === "fulfilled") {
+      const payments = paymentsRes.value as any[];
+      lines.push("【回款分析 - 按年度】");
+      for (const r of payments.slice(-5)) {
+        lines.push(`  ${r.label}年：${r.count}笔，回款 ${(r.total / 10000).toFixed(1)}万元，平均每笔 ${(r.avgAmount / 10000).toFixed(1)}万元`);
+      }
+      lines.push("");
+    }
+
+    if (invoicesRes.status === "fulfilled") {
+      const invoices = invoicesRes.value as any[];
+      lines.push(`【开票分析 - ${year}年月度】`);
+      for (const r of invoices) {
+        if (r.totalWithTax > 0) {
+          lines.push(`  ${r.label}：${r.count}张，开票 ${(r.totalWithTax / 10000).toFixed(1)}万元，待回款 ${(r.totalOutstanding / 10000).toFixed(1)}万元`);
+        }
+      }
+      lines.push("");
+    }
+
+    if (receivablesRes.status === "fulfilled") {
+      const receivables = receivablesRes.value as any[];
+      lines.push("【应收账款 - 账龄分析】");
+      for (const r of receivables) {
+        lines.push(`  ${r.label}：${r.count}笔，应收 ${(r.total / 10000).toFixed(1)}万元，待回款 ${(r.pending / 10000).toFixed(1)}万元`);
+      }
+      lines.push("");
+    }
+
+    if (managersRes.status === "fulfilled") {
+      const managers = managersRes.value as any[];
+      lines.push(`【销售经理绩效 - ${year}年】`);
+      for (const r of managers.slice(0, 10)) {
+        lines.push(`  ${r.manager}：回款 ${(r.totalPayments / 10000).toFixed(1)}万元（${r.paymentCount}笔），合同 ${(r.totalContracts / 10000).toFixed(1)}万元（${r.contractCount}笔）`);
+      }
+      lines.push("");
+    }
+  } catch {}
+
+  return lines.join("\n");
+}
+
 /* ─── Main Component ─────────────────────────────── */
 export default function Statistics() {
   const [activeTab, setActiveTab] = useState("annual");
+  const [showAISettings, setShowAISettings] = useState(false);
+  const [aiConfigKey, setAiConfigKey] = useState(0);
+  const [aiContextData, setAiContextData] = useState("");
+
+  useEffect(() => {
+    if (activeTab === "ai" && !aiContextData) {
+      buildContextData().then(setAiContextData);
+    }
+  }, [activeTab]);
+
+  const handleAITabClick = async () => {
+    setActiveTab("ai");
+    const data = await buildContextData();
+    setAiContextData(data);
+  };
 
   return (
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">统计分析</h1>
+        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setShowAISettings(true)}>
+          <Settings className="w-3.5 h-3.5" />AI 配置
+        </Button>
       </div>
+
+      <AISettingsDialog
+        open={showAISettings}
+        onClose={() => setShowAISettings(false)}
+        onSaved={() => setAiConfigKey(k => k + 1)}
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         <TabsList className="shrink-0 flex-wrap h-auto gap-1">
@@ -112,6 +229,9 @@ export default function Statistics() {
           <TabsTrigger value="weather">数值天气到期</TabsTrigger>
           <TabsTrigger value="managers">销售经理排行</TabsTrigger>
           <TabsTrigger value="contract-track">合同回款追踪</TabsTrigger>
+          <TabsTrigger value="ai" onClick={handleAITabClick} className="gap-1.5 text-violet-600 data-[state=active]:text-violet-700">
+            <Bot className="w-3.5 h-3.5" />AI 智能分析
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex-1 overflow-auto pt-4">
@@ -123,6 +243,13 @@ export default function Statistics() {
           <TabsContent value="weather" className="mt-0 h-full"><WeatherTab /></TabsContent>
           <TabsContent value="managers" className="mt-0 h-full"><ManagersTab /></TabsContent>
           <TabsContent value="contract-track" className="mt-0 h-full"><ContractTrackTab /></TabsContent>
+          <TabsContent value="ai" className="mt-0 h-full">
+            <AIAnalysisPanel
+              key={aiConfigKey}
+              contextData={aiContextData}
+              onOpenSettings={() => setShowAISettings(true)}
+            />
+          </TabsContent>
         </div>
       </Tabs>
     </div>

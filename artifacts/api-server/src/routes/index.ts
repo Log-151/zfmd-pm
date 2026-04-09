@@ -10,6 +10,7 @@ import dashboardRouter from "./dashboard";
 import customFieldDefsRouter from "./custom-field-defs";
 import { statsRouter } from "./stats";
 import backupRouter from "./backup";
+import { aiRouter } from "./ai";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(dashboardRouter);
 router.use(customFieldDefsRouter);
 router.use(statsRouter);
 router.use(backupRouter);
+router.use(aiRouter);
 
 export default router;
