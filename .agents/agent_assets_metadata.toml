@@ -12,3 +12,9 @@ id = "pDv1qtM_1nQt7sPufXNSR"
 uri = "file://DEPLOY.md"
 type = "text"
 title = "部署指南 · 兆方美迪项目管理系统"
+
+[[outputs]]
+id = "S8LtnOulLqLVLK3a3BOiu"
+uri = "file://zfmd-project-source.tar.gz"
+type = "unspecified"
+title = "兆方美迪项目管理系统 — 全部源代码"
