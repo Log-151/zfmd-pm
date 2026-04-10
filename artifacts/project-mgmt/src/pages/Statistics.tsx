@@ -628,7 +628,10 @@ function ReceivablesTab() {
   const AGING_ORDER = ["30天以内","31-60天","61-90天","91-180天","180天以上","已回款"];
   const sortedData = useMemo(() => {
     if (groupBy !== "aging") return data;
-    return [...data].sort((a: any, b: any) => AGING_ORDER.indexOf(a.label) - AGING_ORDER.indexOf(b.label));
+    // 补全所有区间，没有数据的桶显示为 0
+    const map = new Map((data as any[]).map((d: any) => [d.label, d]));
+    const full = AGING_ORDER.map(label => map.get(label) ?? { label, count: 0, total: 0, pending: 0, badDebt: 0 });
+    return full;
   }, [data, groupBy]);
 
   return (
