@@ -16,11 +16,23 @@ export interface Payment {
   province: string;
   group: string;
   station: string;
+  /** @nullable */
+  productLine?: string | null;
+  /** @nullable */
+  projectContent?: string | null;
   salesManager: string;
+  /** @nullable */
+  salesContact?: string | null;
   paymentDate: string;
   amount: number;
   /** @nullable */
+  billAmount?: number | null;
+  /** @nullable */
+  cashAmount?: number | null;
+  /** @nullable */
   paymentRatio?: number | null;
+  /** @nullable */
+  paymentType?: string | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;

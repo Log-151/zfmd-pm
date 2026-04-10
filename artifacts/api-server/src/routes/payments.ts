@@ -18,6 +18,8 @@ function toPaymentResponse(p: typeof paymentsTable.$inferSelect) {
   return {
     ...p,
     amount: parseFloat(p.amount),
+    billAmount: p.billAmount ? parseFloat(p.billAmount) : null,
+    cashAmount: p.cashAmount ? parseFloat(p.cashAmount) : null,
     paymentRatio: p.paymentRatio ? parseFloat(p.paymentRatio) : null,
   };
 }

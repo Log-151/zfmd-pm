@@ -20,11 +20,25 @@ export interface UpdatePaymentBody {
   /** @nullable */
   station?: string | null;
   /** @nullable */
+  productLine?: string | null;
+  /** @nullable */
+  projectContent?: string | null;
+  /** @nullable */
   salesManager?: string | null;
+  /** @nullable */
+  salesContact?: string | null;
   /** @nullable */
   paymentDate?: string | null;
   /** @nullable */
   amount?: number | null;
+  /** @nullable */
+  billAmount?: number | null;
+  /** @nullable */
+  cashAmount?: number | null;
+  /** @nullable */
+  paymentRatio?: number | null;
+  /** @nullable */
+  paymentType?: string | null;
   /** @nullable */
   notes?: string | null;
 }

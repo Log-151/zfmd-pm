@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
@@ -21,17 +20,27 @@ import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
 
-type PaymentItem = { id: number; payer: string; contractNo: string | null; province: string; group: string; station: string; salesManager: string; paymentDate: string; amount: number; paymentRatio: number | null; notes: string | null; customFields: Record<string, unknown> | null };
+type PaymentItem = {
+  id: number; payer: string; contractNo: string | null; province: string;
+  group: string; station: string; productLine: string | null; projectContent: string | null;
+  salesManager: string; salesContact: string | null; paymentDate: string;
+  amount: number; billAmount: number | null; cashAmount: number | null;
+  paymentRatio: number | null; paymentType: string | null; notes: string | null;
+  customFields: Record<string, unknown> | null;
+};
 
 const EMPTY = {
   payer: "", contractNo: "", province: "", group: "", station: "",
-  salesManager: "", paymentDate: "", amount: 0, notes: "", customFields: {} as Record<string, unknown> | null,
+  productLine: "", projectContent: "", salesManager: "", salesContact: "",
+  paymentDate: "", amount: 0, billAmount: 0, cashAmount: 0,
+  paymentRatio: 0, paymentType: "", notes: "",
+  customFields: {} as Record<string, unknown> | null,
 };
 
 export default function Payments() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { defs, addDef, deleteDef } = useCustomFieldDefs("payments");
+  const { defs = [], addDef, deleteDef } = useCustomFieldDefs("payments");
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -61,7 +70,15 @@ export default function Payments() {
 
   useEffect(() => {
     if (editItem) {
-      setForm({ payer: editItem.payer, contractNo: editItem.contractNo ?? "", province: editItem.province, group: editItem.group, station: editItem.station, salesManager: editItem.salesManager, paymentDate: editItem.paymentDate, amount: editItem.amount, notes: editItem.notes ?? "", customFields: {} });
+      setForm({
+        payer: editItem.payer, contractNo: editItem.contractNo ?? "", province: editItem.province,
+        group: editItem.group, station: editItem.station, productLine: editItem.productLine ?? "",
+        projectContent: editItem.projectContent ?? "", salesManager: editItem.salesManager,
+        salesContact: editItem.salesContact ?? "", paymentDate: editItem.paymentDate,
+        amount: editItem.amount, billAmount: editItem.billAmount ?? 0,
+        cashAmount: editItem.cashAmount ?? 0, paymentRatio: editItem.paymentRatio ?? 0,
+        paymentType: editItem.paymentType ?? "", notes: editItem.notes ?? "", customFields: {},
+      });
       setCustomFieldValues((editItem.customFields ?? {}) as Record<string, string | boolean | number>);
     } else {
       setForm({ ...EMPTY });
@@ -79,7 +96,19 @@ export default function Payments() {
     if (!form.payer || !form.paymentDate || !form.province || !form.salesManager) {
       toast({ title: "请填写必填项", variant: "destructive" }); return;
     }
-    const data = { ...form, amount: Number(form.amount), contractNo: form.contractNo || undefined, notes: form.notes || undefined };
+    const data = {
+      ...form,
+      amount: Number(form.amount),
+      billAmount: Number(form.billAmount) || undefined,
+      cashAmount: Number(form.cashAmount) || undefined,
+      paymentRatio: Number(form.paymentRatio) || undefined,
+      contractNo: form.contractNo || undefined,
+      productLine: form.productLine || undefined,
+      projectContent: form.projectContent || undefined,
+      salesContact: form.salesContact || undefined,
+      paymentType: form.paymentType || undefined,
+      notes: form.notes || undefined,
+    };
     if (editItem) {
       updateMutation.mutate({ id: editItem.id, data: { ...data, customFields: customFieldValues } as any });
     } else {
@@ -92,12 +121,21 @@ export default function Payments() {
   const handleExport = () => {
     if (!payments) return;
     exportToCsv("回款记录", payments, [
-      { header: "付款单位", accessor: p => p.payer },
-      { header: "关联合同", accessor: p => p.contractNo ?? "" },
-      { header: "省份", accessor: p => p.province },
-      { header: "销售经理", accessor: p => p.salesManager },
-      { header: "回款金额", accessor: p => p.amount },
       { header: "回款日期", accessor: p => formatDate(p.paymentDate) },
+      { header: "付款单位", accessor: p => p.payer },
+      { header: "省份", accessor: p => p.province },
+      { header: "集团", accessor: p => p.group },
+      { header: "场站", accessor: p => (p as any).station ?? "" },
+      { header: "产品线", accessor: p => (p as any).productLine ?? "" },
+      { header: "合同项目内容", accessor: p => (p as any).projectContent ?? "" },
+      { header: "关联合同号", accessor: p => p.contractNo ?? "" },
+      { header: "汇票回款(元)", accessor: p => (p as any).billAmount ?? "" },
+      { header: "现金回款(元)", accessor: p => (p as any).cashAmount ?? "" },
+      { header: "回款金额(元)", accessor: p => p.amount },
+      { header: "回款比例", accessor: p => p.paymentRatio ?? "" },
+      { header: "款项名称", accessor: p => (p as any).paymentType ?? "" },
+      { header: "销售经理", accessor: p => p.salesManager },
+      { header: "销售联系人", accessor: p => (p as any).salesContact ?? "" },
       { header: "备注", accessor: p => p.notes ?? "" },
     ]);
   };
@@ -134,7 +172,7 @@ export default function Payments() {
           <Input placeholder="搜索付款单位..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         {[
-          { label: "年份", value: yearFilter, onChange: setYearFilter, options: [{ v: "all", l: "全部年份" }, ...[2026,2025,2024,2023,2022].map(y => ({ v: String(y), l: String(y) }))] },
+          { label: "年份", value: yearFilter, onChange: setYearFilter, options: [{ v: "all", l: "全部年份" }, ...[2026,2025,2024,2023,2022,2021,2020,2019,2018].map(y => ({ v: String(y), l: String(y) }))] },
           { label: "省份", value: provinceFilter, onChange: setProvinceFilter, options: [{ v: "all", l: "全部省份" }, ...provinces.map(p => ({ v: p, l: p }))] },
           { label: "销售经理", value: managerFilter, onChange: setManagerFilter, options: [{ v: "all", l: "全部经理" }, ...managers.map(m => ({ v: m, l: m }))] },
         ].map(sel => (
@@ -154,9 +192,15 @@ export default function Payments() {
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
                 <TableHead>付款单位</TableHead>
-                <TableHead>关联合同</TableHead>
                 <TableHead>省份</TableHead>
+                <TableHead>集团</TableHead>
+                <TableHead>场站</TableHead>
+                <TableHead>产品线</TableHead>
+                <TableHead>合同号</TableHead>
+                <TableHead>款项名称</TableHead>
                 <TableHead>销售经理</TableHead>
+                <TableHead className="text-right">汇票回款</TableHead>
+                <TableHead className="text-right">现金回款</TableHead>
                 <TableHead className="text-right">回款金额</TableHead>
                 <TableHead className="text-right">回款比例</TableHead>
                 <TableHead>回款日期</TableHead>
@@ -166,15 +210,21 @@ export default function Payments() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={14 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !payments?.length ? (
-                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={14 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : payments.map(p => (
                 <TableRow key={p.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium max-w-[160px] truncate" title={p.payer}>{p.payer}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.contractNo || "-"}</TableCell>
+                  <TableCell className="font-medium max-w-[140px] truncate" title={p.payer}>{p.payer}</TableCell>
                   <TableCell>{p.province}</TableCell>
+                  <TableCell>{p.group || "-"}</TableCell>
+                  <TableCell className="max-w-[80px] truncate">{(p as any).station || "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{(p as any).productLine || "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.contractNo || "-"}</TableCell>
+                  <TableCell>{(p as any).paymentType || "-"}</TableCell>
                   <TableCell>{p.salesManager}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{(p as any).billAmount ? formatWanYuan((p as any).billAmount) : "-"}</TableCell>
+                  <TableCell className="text-right text-muted-foreground">{(p as any).cashAmount ? formatWanYuan((p as any).cashAmount) : "-"}</TableCell>
                   <TableCell className="text-right font-medium text-emerald-600">+{formatWanYuan(p.amount)}</TableCell>
                   <TableCell className="text-right text-muted-foreground">{p.paymentRatio ? `${(p.paymentRatio * 100).toFixed(1)}%` : "-"}</TableCell>
                   <TableCell>{formatDate(p.paymentDate)}</TableCell>
@@ -193,17 +243,24 @@ export default function Payments() {
       </div>
 
       <Dialog open={showCreate || editItem !== null} onOpenChange={v => { if (!v) { setShowCreate(false); setEditItem(null); } }}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editItem ? "编辑回款" : "登记回款"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             <div className="col-span-2 space-y-1.5"><Label>付款单位 <span className="text-destructive">*</span></Label><Input value={form.payer} onChange={e => f("payer", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} placeholder="如 HT-2024-001" /></div>
             <div className="space-y-1.5"><Label>省份 <span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
             <div className="space-y-1.5"><Label>集团</Label><Input value={form.group} onChange={e => f("group", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>场站</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>场站名称</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>产品线</Label><Input value={form.productLine} onChange={e => f("productLine", e.target.value)} placeholder="如：风电功率预测" /></div>
+            <div className="col-span-2 space-y-1.5"><Label>合同项目内容</Label><Input value={form.projectContent} onChange={e => f("projectContent", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} placeholder="如 HT-2024-001" /></div>
+            <div className="space-y-1.5"><Label>款项名称</Label><Input value={form.paymentType} onChange={e => f("paymentType", e.target.value)} placeholder="如：合同款、首付款" /></div>
             <div className="space-y-1.5"><Label>销售经理 <span className="text-destructive">*</span></Label><Input value={form.salesManager} onChange={e => f("salesManager", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>销售联系人</Label><Input value={form.salesContact} onChange={e => f("salesContact", e.target.value)} /></div>
             <div className="space-y-1.5"><Label>回款日期 <span className="text-destructive">*</span></Label><Input type="date" value={form.paymentDate} onChange={e => f("paymentDate", e.target.value)} /></div>
-            <div className="col-span-2 space-y-1.5"><Label>回款金额（元）</Label><Input type="number" value={form.amount} onChange={e => f("amount", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>回款比例</Label><Input type="number" step="0.01" value={form.paymentRatio} onChange={e => f("paymentRatio", e.target.value)} placeholder="0~1 之间，如 0.5" /></div>
+            <div className="space-y-1.5"><Label>汇票回款（元）</Label><Input type="number" value={form.billAmount} onChange={e => f("billAmount", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>现金回款（元）</Label><Input type="number" value={form.cashAmount} onChange={e => f("cashAmount", e.target.value)} /></div>
+            <div className="col-span-2 space-y-1.5"><Label>回款金额（元）<span className="text-destructive">*</span></Label><Input type="number" value={form.amount} onChange={e => f("amount", e.target.value)} /></div>
             <div className="col-span-2 space-y-1.5"><Label>备注</Label><Input value={form.notes} onChange={e => f("notes", e.target.value)} /></div>
             <div className="col-span-2"><CustomFieldsSection defs={defs} values={customFieldValues} onChange={setCustomFieldValues} /></div>
           </div>
@@ -227,13 +284,20 @@ export default function Payments() {
       <ImportDialog open={showImport} onOpenChange={setShowImport} title="回款管理" templateFilename="回款导入模板.csv"
         columns={[
           { key: "payer", label: "付款单位", required: true },
-          { key: "contractNo", label: "关联合同号" },
           { key: "province", label: "省份", required: true },
           { key: "group", label: "集团" },
-          { key: "station", label: "场站" },
+          { key: "station", label: "场站名称" },
+          { key: "productLine", label: "产品线" },
+          { key: "projectContent", label: "合同项目内容" },
+          { key: "contractNo", label: "关联合同号" },
+          { key: "paymentType", label: "款项名称" },
           { key: "salesManager", label: "销售经理", required: true },
+          { key: "salesContact", label: "销售联系人" },
           { key: "paymentDate", label: "回款日期", required: true },
-          { key: "amount", label: "回款金额", required: true, transform: v => parseFloat(v) || 0 },
+          { key: "billAmount", label: "汇票回款(元)", transform: v => parseFloat(v) || undefined },
+          { key: "cashAmount", label: "现金回款(元)", transform: v => parseFloat(v) || undefined },
+          { key: "amount", label: "回款金额(元)", required: true, transform: v => parseFloat(v) || 0 },
+          { key: "paymentRatio", label: "回款比例", transform: v => parseFloat(v) || undefined },
           { key: "notes", label: "备注" },
         ]}
         onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}

@@ -275,9 +275,16 @@ export const CreatePaymentBody = zod.object({
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
   salesManager: zod.string(),
+  salesContact: zod.string().nullish(),
   paymentDate: zod.string(),
   amount: zod.number(),
+  billAmount: zod.number().nullish(),
+  cashAmount: zod.number().nullish(),
+  paymentRatio: zod.number().nullish(),
+  paymentType: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -319,9 +326,16 @@ export const UpdatePaymentBody = zod.object({
   province: zod.string().nullish(),
   group: zod.string().nullish(),
   station: zod.string().nullish(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
   salesManager: zod.string().nullish(),
+  salesContact: zod.string().nullish(),
   paymentDate: zod.string().nullish(),
   amount: zod.number().nullish(),
+  billAmount: zod.number().nullish(),
+  cashAmount: zod.number().nullish(),
+  paymentRatio: zod.number().nullish(),
+  paymentType: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 

@@ -18,3 +18,9 @@ id = "S8LtnOulLqLVLK3a3BOiu"
 uri = "file://zfmd-project-source.tar.gz"
 type = "unspecified"
 title = "兆方美迪 — 最新版源代码"
+
+[[outputs]]
+id = "9CtEiiu_n3GYn25Ez6jrH"
+uri = "file://回款导入测试数据_2026.csv"
+type = "table"
+title = "回款导入测试数据（2026年，12条）"

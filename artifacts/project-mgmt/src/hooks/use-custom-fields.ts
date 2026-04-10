@@ -21,8 +21,9 @@ export function useCustomFieldDefs(module: string) {
     setLoading(true);
     try {
       const res = await fetch(`${BASE}/api/field-definitions?module=${module}`, { credentials: "include" });
+      if (!res.ok) { setDefs([]); return; }
       const data = await res.json();
-      setDefs(data);
+      setDefs(Array.isArray(data) ? data : []);
     } catch {
       setDefs([]);
     } finally {

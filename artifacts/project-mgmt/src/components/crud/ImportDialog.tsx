@@ -145,9 +145,9 @@ export function ImportDialog({ open, onOpenChange, title, columns, onImportRow, 
                 <Download className="w-4 h-4 mr-2" /> 下载模板
               </Button>
             </div>
-            <div className="text-xs text-muted-foreground">
-              <p className="font-medium mb-1">必填列：</p>
-              <p>{columns.filter(c => c.required).map(c => c.label).join("、") || "无"}</p>
+            <div className="text-xs text-muted-foreground space-y-1.5">
+              <p><span className="font-medium">必填列：</span>{columns.filter(c => c.required).map(c => c.label).join("、") || "无"}</p>
+              <p><span className="font-medium">全部列：</span>{columns.map(c => c.label).join("、")}</p>
             </div>
           </div>
         ) : (
