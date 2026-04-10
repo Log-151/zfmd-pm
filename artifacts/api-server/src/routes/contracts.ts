@@ -19,6 +19,9 @@ function toContractResponse(c: typeof contractsTable.$inferSelect) {
     ...c,
     amountWithTax: parseFloat(c.amountWithTax),
     amountWithoutTax: parseFloat(c.amountWithoutTax),
+    installFee: c.installFee ? parseFloat(c.installFee) : null,
+    serviceFee: c.serviceFee ? parseFloat(c.serviceFee) : null,
+    thirdPartyFee: c.thirdPartyFee ? parseFloat(c.thirdPartyFee) : null,
   };
 }
 
