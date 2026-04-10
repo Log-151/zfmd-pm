@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, numeric, integer, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -9,16 +9,23 @@ export const invoicesTable = pgTable("invoices", {
   invoiceNo: text("invoice_no"),
   customer: text("customer").notNull(),
   province: text("province").notNull(),
+  group: text("group"),
   station: text("station").notNull().default(""),
+  productLine: text("product_line"),
+  projectContent: text("project_content"),
   salesManager: text("sales_manager").notNull(),
+  salesContact: text("sales_contact"),
+  contractAmount: numeric("contract_amount", { precision: 20, scale: 2 }),
+  applicationDate: text("application_date"),
   invoiceDate: text("invoice_date").notNull(),
   amountWithTax: numeric("amount_with_tax", { precision: 20, scale: 2 }).notNull().default("0"),
   amountWithoutTax: numeric("amount_without_tax", { precision: 20, scale: 2 }).notNull().default("0"),
-  taxRate: numeric("tax_rate", { precision: 6, scale: 4 }).notNull().default("0.09"),
+  taxRate: text("tax_rate").notNull().default("税率6%"),
   expectedPaymentDate: text("expected_payment_date"),
   expectedPaymentAmount: numeric("expected_payment_amount", { precision: 20, scale: 2 }),
   actualPaymentDate: text("actual_payment_date"),
   actualPaymentAmount: numeric("actual_payment_amount", { precision: 20, scale: 2 }),
+  courierNo: text("courier_no"),
   voidDate: text("void_date"),
   status: text("status").notNull().default("有效"),
   notes: text("notes"),

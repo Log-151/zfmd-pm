@@ -31,7 +31,7 @@ function toInvoiceResponse(inv: typeof invoicesTable.$inferSelect) {
     ...inv,
     amountWithTax: parseFloat(inv.amountWithTax),
     amountWithoutTax: parseFloat(inv.amountWithoutTax),
-    taxRate: parseFloat(inv.taxRate),
+    contractAmount: inv.contractAmount ? parseFloat(inv.contractAmount) : null,
     expectedPaymentAmount: inv.expectedPaymentAmount ? parseFloat(inv.expectedPaymentAmount) : null,
     actualPaymentAmount: inv.actualPaymentAmount ? parseFloat(inv.actualPaymentAmount) : null,
     outstandingAmount: computeOutstanding(inv),
@@ -91,8 +91,9 @@ router.post("/invoices", async (req, res): Promise<void> => {
     ...parsed.data,
     amountWithTax: String(parsed.data.amountWithTax),
     amountWithoutTax: String(parsed.data.amountWithoutTax),
-    taxRate: String(parsed.data.taxRate),
+    contractAmount: parsed.data.contractAmount != null ? String(parsed.data.contractAmount) : undefined,
     expectedPaymentAmount: parsed.data.expectedPaymentAmount != null ? String(parsed.data.expectedPaymentAmount) : undefined,
+    actualPaymentAmount: parsed.data.actualPaymentAmount != null ? String(parsed.data.actualPaymentAmount) : undefined,
     customFields: req.body.customFields ?? {},
   }).returning();
   res.status(201).json(toInvoiceResponse(inv));
@@ -116,7 +117,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   if (req.body.customFields !== undefined) updateData.customFields = req.body.customFields;
   if (parsed.data.amountWithTax != null) updateData.amountWithTax = String(parsed.data.amountWithTax);
   if (parsed.data.amountWithoutTax != null) updateData.amountWithoutTax = String(parsed.data.amountWithoutTax);
-  if (parsed.data.taxRate != null) updateData.taxRate = String(parsed.data.taxRate);
+  if (parsed.data.contractAmount != null) updateData.contractAmount = String(parsed.data.contractAmount);
   if (parsed.data.expectedPaymentAmount != null) updateData.expectedPaymentAmount = String(parsed.data.expectedPaymentAmount);
   if (parsed.data.actualPaymentAmount != null) updateData.actualPaymentAmount = String(parsed.data.actualPaymentAmount);
 
