@@ -13,7 +13,12 @@ import {
 const router: IRouter = Router();
 
 function toWorkOrderResponse(wo: typeof workOrdersTable.$inferSelect) {
-  return { ...wo };
+  return {
+    ...wo,
+    estimatedAmount: wo.estimatedAmount ? parseFloat(wo.estimatedAmount) : null,
+    estimatedCost: wo.estimatedCost ? parseFloat(wo.estimatedCost) : null,
+    actualAmount: wo.actualAmount ? parseFloat(wo.actualAmount) : null,
+  };
 }
 
 router.get("/work-orders", async (req, res): Promise<void> => {

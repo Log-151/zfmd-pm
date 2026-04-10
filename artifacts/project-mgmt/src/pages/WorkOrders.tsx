@@ -10,26 +10,60 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertTriangle } from "lucide-react";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
 
-type WorkOrderItem = { id: number; workOrderNo: string; contractId: number | null; contractNo: string | null; customer: string; province: string; group: string; station: string; salesManager: string; productType: string; applyDate: string; startDate: string | null; notes: string | null; hasContract: boolean; customFields: Record<string, unknown> | null };
-
-const EMPTY = {
-  workOrderNo: "", contractNo: "", customer: "", province: "", group: "", station: "",
-  salesManager: "", productType: "数值天气预报", applyDate: "", startDate: "", notes: "", customFields: {} as Record<string, unknown> | null,
+type WorkOrderItem = {
+  id: number;
+  workOrderNo: string;
+  changeNo: string | null;
+  contractId: number | null;
+  contractNo: string | null;
+  cancelTime: string | null;
+  costIncurred: string | null;
+  costHandling: string | null;
+  circulationTime: string | null;
+  customer: string;
+  province: string;
+  group: string;
+  station: string;
+  stationType: string | null;
+  productType: string;
+  projectContent: string | null;
+  salesManager: string;
+  briefingTime: string | null;
+  estimatedAmount: number | null;
+  estimatedCost: number | null;
+  actualAmount: number | null;
+  deliveryDept: string | null;
+  projectManager: string | null;
+  deliveryTime: string | null;
+  acceptanceTime: string | null;
+  applyDate: string;
+  startDate: string | null;
+  notes: string | null;
+  hasContract: boolean;
+  customFields: Record<string, unknown> | null;
 };
 
-const PRODUCT_TYPES = ["数值天气预报", "功率预测系统", "综合预测平台", "其他"];
+const EMPTY = {
+  workOrderNo: "", changeNo: "", contractNo: "", customer: "",
+  cancelTime: "", costIncurred: "", costHandling: "",
+  circulationTime: "", province: "", group: "", station: "",
+  stationType: "", productType: "风电功率预测", projectContent: "",
+  salesManager: "", briefingTime: "",
+  estimatedAmount: "", estimatedCost: "", actualAmount: "",
+  deliveryDept: "", projectManager: "", deliveryTime: "", acceptanceTime: "",
+  applyDate: "", startDate: "", notes: "",
+};
+
+const PRODUCT_TYPES = ["风电功率预测", "光伏功率预测", "数值天气预报", "网络安全监测装置", "综合预测平台", "其他"];
 
 export default function WorkOrders() {
   const queryClient = useQueryClient();
@@ -40,7 +74,6 @@ export default function WorkOrders() {
   const [yearFilter, setYearFilter] = useState("all");
   const [provinceFilter, setProvinceFilter] = useState("all");
   const [productFilter, setProductFilter] = useState("all");
-  const [noContractOnly, setNoContractOnly] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<WorkOrderItem | null>(null);
@@ -50,28 +83,64 @@ export default function WorkOrders() {
   const [form, setForm] = useState({ ...EMPTY });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean | number>>({});
 
-  const qp = {
-    province: provinceFilter !== "all" ? provinceFilter : undefined,
+  const queryParams = {
     year: yearFilter !== "all" ? parseInt(yearFilter) : undefined,
-    noContract: noContractOnly || undefined,
+    province: provinceFilter !== "all" ? provinceFilter : undefined,
   };
-  const { data: workOrders, isLoading } = useListWorkOrders(qp, { query: { queryKey: getListWorkOrdersQueryKey(qp) } });
+  const { data: workOrders, isLoading } = useListWorkOrders(queryParams, {
+    query: { queryKey: getListWorkOrdersQueryKey(queryParams) },
+  });
 
   const filtered = useMemo(() => {
-    if (!workOrders) return [];
-    let result = workOrders;
-    if (search) result = result.filter(w => w.workOrderNo.includes(search) || w.customer.includes(search) || w.station?.includes(search));
-    if (productFilter !== "all") result = result.filter(w => w.productType === productFilter);
-    return result;
+    let items = workOrders ?? [];
+    if (search) {
+      const s = search.toLowerCase();
+      items = items.filter(w =>
+        w.workOrderNo.toLowerCase().includes(s) ||
+        (w.contractNo ?? "").toLowerCase().includes(s) ||
+        w.customer.toLowerCase().includes(s) ||
+        w.station.toLowerCase().includes(s) ||
+        (w.projectContent ?? "").toLowerCase().includes(s)
+      );
+    }
+    if (productFilter !== "all") items = items.filter(w => w.productType === productFilter);
+    return items;
   }, [workOrders, search, productFilter]);
 
   const provinces = useMemo(() => [...new Set((workOrders ?? []).map(w => w.province).filter(Boolean))].sort(), [workOrders]);
-  const withContractCount = useMemo(() => filtered.filter(w => w.hasContract).length, [filtered]);
-  const withoutContractCount = useMemo(() => filtered.filter(w => !w.hasContract).length, [filtered]);
+  const totalEstimated = useMemo(() => filtered.reduce((s, w) => s + (w.estimatedAmount ?? 0), 0), [filtered]);
+  const totalCost = useMemo(() => filtered.reduce((s, w) => s + (w.estimatedCost ?? 0), 0), [filtered]);
 
   useEffect(() => {
     if (editItem) {
-      setForm({ workOrderNo: editItem.workOrderNo, contractNo: editItem.contractNo ?? "", customer: editItem.customer, province: editItem.province, group: editItem.group, station: editItem.station, salesManager: editItem.salesManager, productType: editItem.productType, applyDate: editItem.applyDate, startDate: editItem.startDate ?? "", notes: editItem.notes ?? "", customFields: {} });
+      setForm({
+        workOrderNo: editItem.workOrderNo,
+        changeNo: editItem.changeNo ?? "",
+        contractNo: editItem.contractNo ?? "",
+        customer: editItem.customer ?? "",
+        cancelTime: editItem.cancelTime ?? "",
+        costIncurred: editItem.costIncurred ?? "",
+        costHandling: editItem.costHandling ?? "",
+        circulationTime: editItem.circulationTime ?? "",
+        province: editItem.province,
+        group: editItem.group,
+        station: editItem.station,
+        stationType: editItem.stationType ?? "",
+        productType: editItem.productType,
+        projectContent: editItem.projectContent ?? "",
+        salesManager: editItem.salesManager,
+        briefingTime: editItem.briefingTime ?? "",
+        estimatedAmount: editItem.estimatedAmount != null ? String(editItem.estimatedAmount) : "",
+        estimatedCost: editItem.estimatedCost != null ? String(editItem.estimatedCost) : "",
+        actualAmount: editItem.actualAmount != null ? String(editItem.actualAmount) : "",
+        deliveryDept: editItem.deliveryDept ?? "",
+        projectManager: editItem.projectManager ?? "",
+        deliveryTime: editItem.deliveryTime ?? "",
+        acceptanceTime: editItem.acceptanceTime ?? "",
+        applyDate: editItem.applyDate ?? "",
+        startDate: editItem.startDate ?? "",
+        notes: editItem.notes ?? "",
+      });
       setCustomFieldValues((editItem.customFields ?? {}) as Record<string, string | boolean | number>);
     } else {
       setForm({ ...EMPTY });
@@ -81,36 +150,93 @@ export default function WorkOrders() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListWorkOrdersQueryKey() });
 
-  const createMutation = useCreateWorkOrder({ mutation: { onSuccess: () => { invalidate(); setShowCreate(false); toast({ title: "开工申请已创建" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const updateMutation = useUpdateWorkOrder({ mutation: { onSuccess: () => { invalidate(); setEditItem(null); toast({ title: "已更新" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const deleteMutation = useDeleteWorkOrder({ mutation: { onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "已删除" }); }, onError: () => toast({ title: "删除失败", variant: "destructive" }) } });
+  const createMutation = useCreateWorkOrder({
+    mutation: {
+      onSuccess: () => { invalidate(); setShowCreate(false); toast({ title: "开工申请已创建" }); },
+      onError: () => toast({ title: "创建失败", variant: "destructive" }),
+    },
+  });
+
+  const updateMutation = useUpdateWorkOrder({
+    mutation: {
+      onSuccess: () => { invalidate(); setEditItem(null); toast({ title: "开工申请已更新" }); },
+      onError: () => toast({ title: "更新失败", variant: "destructive" }),
+    },
+  });
+
+  const deleteMutation = useDeleteWorkOrder({
+    mutation: {
+      onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "开工申请已删除" }); },
+      onError: () => toast({ title: "删除失败", variant: "destructive" }),
+    },
+  });
+
+  const buildPayload = () => ({
+    ...form,
+    estimatedAmount: form.estimatedAmount ? parseFloat(form.estimatedAmount) : undefined,
+    estimatedCost: form.estimatedCost ? parseFloat(form.estimatedCost) : undefined,
+    actualAmount: form.actualAmount ? parseFloat(form.actualAmount) : undefined,
+    changeNo: form.changeNo || undefined,
+    contractNo: form.contractNo || undefined,
+    cancelTime: form.cancelTime || undefined,
+    costIncurred: form.costIncurred || undefined,
+    costHandling: form.costHandling || undefined,
+    circulationTime: form.circulationTime || undefined,
+    stationType: form.stationType || undefined,
+    projectContent: form.projectContent || undefined,
+    briefingTime: form.briefingTime || undefined,
+    deliveryDept: form.deliveryDept || undefined,
+    projectManager: form.projectManager || undefined,
+    deliveryTime: form.deliveryTime || undefined,
+    acceptanceTime: form.acceptanceTime || undefined,
+    startDate: form.startDate || undefined,
+    notes: form.notes || undefined,
+    customFields: customFieldValues,
+  });
 
   const handleSubmit = () => {
-    if (!form.workOrderNo || !form.customer || !form.province || !form.salesManager || !form.applyDate) {
-      toast({ title: "请填写必填项", variant: "destructive" }); return;
+    if (!form.workOrderNo || !form.province || !form.salesManager) {
+      toast({ title: "请填写必填项（开工申请编号、省份、销售经理）", variant: "destructive" });
+      return;
     }
-    const data = { ...form, contractNo: form.contractNo || undefined, startDate: form.startDate || undefined, notes: form.notes || undefined };
     if (editItem) {
-      updateMutation.mutate({ id: editItem.id, data: { ...data, customFields: customFieldValues } as any });
+      updateMutation.mutate({ id: editItem.id, data: buildPayload() as any });
     } else {
-      createMutation.mutate({ data: { ...data, customFields: customFieldValues } as any });
+      createMutation.mutate({ data: buildPayload() as any });
     }
   };
 
   const f = (k: keyof typeof EMPTY, v: unknown) => setForm(p => ({ ...p, [k]: v }));
 
   const handleExport = () => {
-    exportToCsv("开工申请", filtered, [
-      { header: "申请单号", accessor: w => w.workOrderNo },
-      { header: "客户名称", accessor: w => w.customer },
-      { header: "产品类型", accessor: w => w.productType },
-      { header: "省份", accessor: w => w.province },
+    exportToCsv("开工申请列表", filtered, [
+      { header: "开工申请编号", accessor: w => w.workOrderNo },
+      { header: "开工变更申请表编号", accessor: w => w.changeNo ?? "" },
+      { header: "对应合同编号", accessor: w => w.contractNo ?? "" },
+      { header: "开工申请取消时间", accessor: w => w.cancelTime ?? "" },
+      { header: "是否发生成本费用", accessor: w => w.costIncurred ?? "" },
+      { header: "成本费用处理", accessor: w => w.costHandling ?? "" },
+      { header: "开工申请流转时间", accessor: w => w.circulationTime ?? "" },
+      { header: "省（区）", accessor: w => w.province },
+      { header: "集团", accessor: w => w.group },
+      { header: "场站名称", accessor: w => w.station },
+      { header: "场站类型", accessor: w => w.stationType ?? "" },
+      { header: "产品线", accessor: w => w.productType },
+      { header: "开工项目内容", accessor: w => w.projectContent ?? "" },
       { header: "销售经理", accessor: w => w.salesManager },
-      { header: "申请日期", accessor: w => formatDate(w.applyDate) },
-      { header: "关联合同", accessor: w => w.contractNo || "无" },
-      { header: "有无合同", accessor: w => w.hasContract ? "有" : "无" },
+      { header: "项目交底会时间", accessor: w => w.briefingTime ?? "" },
+      { header: "预计合同金额", accessor: w => w.estimatedAmount ?? "" },
+      { header: "预计成本", accessor: w => w.estimatedCost ?? "" },
+      { header: "实际合同金额", accessor: w => w.actualAmount ?? "" },
+      { header: "交付部门", accessor: w => w.deliveryDept ?? "" },
+      { header: "项目经理", accessor: w => w.projectManager ?? "" },
+      { header: "到货时间", accessor: w => w.deliveryTime ?? "" },
+      { header: "验收时间", accessor: w => w.acceptanceTime ?? "" },
+      { header: "备注", accessor: w => w.notes ?? "" },
     ]);
   };
+
+  const fmtAmt = (v: number | null) => v != null ? `${v.toFixed(2)}万` : "-";
 
   return (
     <div className="space-y-4 flex flex-col h-full">
@@ -126,9 +252,9 @@ export default function WorkOrders() {
 
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "申请总数", value: String(filtered.length), sub: "条开工申请" },
-          { label: "已有合同", value: String(withContractCount), sub: `占比 ${filtered.length ? Math.round(withContractCount / filtered.length * 100) : 0}%` },
-          { label: "无合同风险", value: String(withoutContractCount), sub: "需跟进" },
+          { label: "开工申请数", value: String(filtered.length), sub: `共 ${workOrders?.length ?? 0} 条记录` },
+          { label: "预计合同总额", value: `${totalEstimated.toFixed(2)} 万`, sub: "当前筛选" },
+          { label: "预计成本合计", value: `${totalCost.toFixed(2)} 万`, sub: "当前筛选" },
         ].map(stat => (
           <div key={stat.label} className="bg-card border rounded-lg p-4">
             <p className="text-sm text-muted-foreground">{stat.label}</p>
@@ -141,24 +267,20 @@ export default function WorkOrders() {
       <div className="bg-card rounded-lg border shadow-sm p-3 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="搜索申请单号、客户、场站..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
+          <Input placeholder="搜索编号、场站、内容..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         {[
-          { label: "年份", value: yearFilter, onChange: setYearFilter, options: [{ v: "all", l: "全部年份" }, ...[2026,2025,2024,2023,2022].map(y => ({ v: String(y), l: String(y) }))] },
+          { label: "年份", value: yearFilter, onChange: setYearFilter, options: [{ v: "all", l: "全部年份" }, ...[2026,2025,2024,2023,2022,2021,2020,2019,2018,2017].map(y => ({ v: String(y), l: String(y) }))] },
           { label: "省份", value: provinceFilter, onChange: setProvinceFilter, options: [{ v: "all", l: "全部省份" }, ...provinces.map(p => ({ v: p, l: p }))] },
-          { label: "产品类型", value: productFilter, onChange: setProductFilter, options: [{ v: "all", l: "全部类型" }, ...PRODUCT_TYPES.map(t => ({ v: t, l: t }))] },
+          { label: "产品线", value: productFilter, onChange: setProductFilter, options: [{ v: "all", l: "全部产品线" }, ...PRODUCT_TYPES.map(t => ({ v: t, l: t }))] },
         ].map(sel => (
           <Select key={sel.label} value={sel.value} onValueChange={sel.onChange}>
             <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={sel.label} /></SelectTrigger>
             <SelectContent>{sel.options.map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
           </Select>
         ))}
-        <div className="flex items-center gap-2">
-          <Checkbox id="noContract" checked={noContractOnly} onCheckedChange={v => setNoContractOnly(!!v)} />
-          <label htmlFor="noContract" className="text-sm cursor-pointer">仅无合同</label>
-        </div>
-        {(search || yearFilter !== "all" || provinceFilter !== "all" || productFilter !== "all" || noContractOnly) && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(""); setYearFilter("all"); setProvinceFilter("all"); setProductFilter("all"); setNoContractOnly(false); }}>清除筛选</Button>
+        {(search || yearFilter !== "all" || provinceFilter !== "all" || productFilter !== "all") && (
+          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(""); setYearFilter("all"); setProvinceFilter("all"); setProductFilter("all"); }}>清除筛选</Button>
         )}
       </div>
 
@@ -167,83 +289,131 @@ export default function WorkOrders() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>申请单号</TableHead>
-                <TableHead>客户名称</TableHead>
-                <TableHead>产品类型</TableHead>
-                <TableHead>省份</TableHead>
+                <TableHead>开工申请编号</TableHead>
+                <TableHead>变更编号</TableHead>
+                <TableHead>对应合同编号</TableHead>
+                <TableHead>省（区）</TableHead>
+                <TableHead>集团</TableHead>
+                <TableHead>场站名称</TableHead>
+                <TableHead>场站类型</TableHead>
+                <TableHead>产品线</TableHead>
+                <TableHead>开工项目内容</TableHead>
                 <TableHead>销售经理</TableHead>
-                <TableHead>申请日期</TableHead>
-                <TableHead>关联合同</TableHead>
+                <TableHead>流转时间</TableHead>
+                <TableHead className="text-right">预计合同额</TableHead>
+                <TableHead className="text-right">预计成本</TableHead>
+                <TableHead className="text-right">实际合同额</TableHead>
+                <TableHead>交付部门</TableHead>
+                <TableHead>项目经理</TableHead>
+                <TableHead>到货时间</TableHead>
+                <TableHead>验收时间</TableHead>
                 {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={8 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
-              ) : filtered.map(wo => (
-                <TableRow key={wo.id} className="hover:bg-muted/50">
-                  <TableCell className="font-medium">{wo.workOrderNo}</TableCell>
-                  <TableCell className="max-w-[160px] truncate" title={wo.customer}>{wo.customer}</TableCell>
-                  <TableCell><Badge variant="outline">{wo.productType}</Badge></TableCell>
-                  <TableCell>{wo.province}</TableCell>
-                  <TableCell>{wo.salesManager}</TableCell>
-                  <TableCell>{formatDate(wo.applyDate)}</TableCell>
-                  <TableCell>
-                    {wo.hasContract ? (
-                      <span className="text-muted-foreground text-sm">{wo.contractNo}</span>
-                    ) : (
-                      <Badge variant="destructive" className="gap-1 flex w-fit text-xs"><AlertTriangle className="w-3 h-3" /> 无合同</Badge>
-                    )}
-                  </TableCell>
-                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((wo.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(wo as any)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(wo.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+              ) : (
+                filtered.map(wo => (
+                  <TableRow key={wo.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium text-sm">{wo.workOrderNo}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{wo.changeNo || "-"}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{wo.contractNo || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.province}</TableCell>
+                    <TableCell className="text-sm">{wo.group || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.station || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.stationType || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.productType}</TableCell>
+                    <TableCell className="text-sm max-w-[130px] truncate" title={wo.projectContent ?? ""}>{wo.projectContent || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.salesManager}</TableCell>
+                    <TableCell className="text-sm">{wo.circulationTime || "-"}</TableCell>
+                    <TableCell className="text-right text-sm">{fmtAmt(wo.estimatedAmount)}</TableCell>
+                    <TableCell className="text-right text-sm">{fmtAmt(wo.estimatedCost)}</TableCell>
+                    <TableCell className="text-right text-sm">{fmtAmt(wo.actualAmount)}</TableCell>
+                    <TableCell className="text-sm">{wo.deliveryDept || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.projectManager || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.deliveryTime || "-"}</TableCell>
+                    <TableCell className="text-sm">{wo.acceptanceTime || "-"}</TableCell>
+                    {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((wo.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(wo as any)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(wo.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
       </div>
 
       <Dialog open={showCreate || editItem !== null} onOpenChange={v => { if (!v) { setShowCreate(false); setEditItem(null); } }}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editItem ? "编辑开工申请" : "新建开工申请"}</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
-            <div className="space-y-1.5"><Label>申请单号 <span className="text-destructive">*</span></Label><Input value={form.workOrderNo} onChange={e => f("workOrderNo", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>产品类型</Label>
+            <div className="space-y-1.5"><Label>开工申请编号 <span className="text-destructive">*</span></Label><Input value={form.workOrderNo} onChange={e => f("workOrderNo", e.target.value)} placeholder="如 ZFMD/KGSQ-26001" /></div>
+            <div className="space-y-1.5"><Label>开工变更申请表编号</Label><Input value={form.changeNo} onChange={e => f("changeNo", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>对应合同编号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>开工申请取消时间</Label><Input value={form.cancelTime} onChange={e => f("cancelTime", e.target.value)} placeholder="如 2026.1.15" /></div>
+            <div className="space-y-1.5"><Label>是否发生成本费用</Label>
+              <Select value={form.costIncurred || "none"} onValueChange={v => f("costIncurred", v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-</SelectItem>
+                  {["是", "否"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>成本费用处理</Label><Input value={form.costHandling} onChange={e => f("costHandling", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>开工申请流转时间</Label><Input value={form.circulationTime} onChange={e => f("circulationTime", e.target.value)} placeholder="如 2026.1.17" /></div>
+            <div className="space-y-1.5"><Label>省（区）<span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>集团</Label><Input value={form.group} onChange={e => f("group", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>场站名称</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>场站类型</Label>
+              <Select value={form.stationType || "none"} onValueChange={v => f("stationType", v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="-" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-</SelectItem>
+                  {["风电场", "光伏电站", "其他"].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5"><Label>产品线</Label>
               <Select value={form.productType} onValueChange={v => f("productType", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{PRODUCT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="col-span-2 space-y-1.5"><Label>客户名称 <span className="text-destructive">*</span></Label><Input value={form.customer} onChange={e => f("customer", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>省份 <span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>集团</Label><Input value={form.group} onChange={e => f("group", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>场站</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
+            <div className="col-span-2 space-y-1.5"><Label>开工项目内容</Label><Input value={form.projectContent} onChange={e => f("projectContent", e.target.value)} placeholder="如：短期软件；超短期软件；系统硬件；预测服务2年" /></div>
             <div className="space-y-1.5"><Label>销售经理 <span className="text-destructive">*</span></Label><Input value={form.salesManager} onChange={e => f("salesManager", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>申请日期 <span className="text-destructive">*</span></Label><Input type="date" value={form.applyDate} onChange={e => f("applyDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>开始日期</Label><Input type="date" value={form.startDate} onChange={e => f("startDate", e.target.value)} /></div>
-            <div className="col-span-2 space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>项目交底会时间</Label><Input value={form.briefingTime} onChange={e => f("briefingTime", e.target.value)} placeholder="如 2026.1.20" /></div>
+            <div className="space-y-1.5"><Label>预计合同金额（万元）</Label><Input type="number" step="0.01" value={form.estimatedAmount} onChange={e => f("estimatedAmount", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>预计成本（万元）</Label><Input type="number" step="0.01" value={form.estimatedCost} onChange={e => f("estimatedCost", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>实际合同金额（万元）</Label><Input type="number" step="0.01" value={form.actualAmount} onChange={e => f("actualAmount", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>交付部门</Label><Input value={form.deliveryDept} onChange={e => f("deliveryDept", e.target.value)} placeholder="如：工程项目部" /></div>
+            <div className="space-y-1.5"><Label>项目经理</Label><Input value={form.projectManager} onChange={e => f("projectManager", e.target.value)} /></div>
+            <div className="space-y-1.5"><Label>到货时间</Label><Input value={form.deliveryTime} onChange={e => f("deliveryTime", e.target.value)} placeholder="如 2026.2.7" /></div>
+            <div className="space-y-1.5"><Label>验收时间</Label><Input value={form.acceptanceTime} onChange={e => f("acceptanceTime", e.target.value)} placeholder="如 2026.2.7" /></div>
             <div className="col-span-2 space-y-1.5"><Label>备注</Label><Input value={form.notes} onChange={e => f("notes", e.target.value)} /></div>
             <div className="col-span-2"><CustomFieldsSection defs={defs} values={customFieldValues} onChange={setCustomFieldValues} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreate(false); setEditItem(null); }}>取消</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>{editItem ? "保存" : "创建"}</Button>
+            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending) ? "保存中..." : editItem ? "保存" : "创建"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>确定要删除此开工申请吗？</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>删除后无法恢复，确定要删除该开工申请吗？</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>删除</AlertDialogAction>
@@ -253,15 +423,29 @@ export default function WorkOrders() {
 
       <ImportDialog open={showImport} onOpenChange={setShowImport} title="开工申请" templateFilename="开工申请导入模板.csv"
         columns={[
-          { key: "workOrderNo", label: "申请单号", required: true },
-          { key: "customer", label: "客户名称", required: true },
-          { key: "province", label: "省份", required: true },
+          { key: "workOrderNo", label: "开工申请编号", required: true },
+          { key: "changeNo", label: "开工变更申请表编号" },
+          { key: "contractNo", label: "对应合同编号" },
+          { key: "cancelTime", label: "开工申请取消时间" },
+          { key: "costIncurred", label: "是否发生成本费用" },
+          { key: "costHandling", label: "成本费用处理" },
+          { key: "circulationTime", label: "开工申请流转时间" },
+          { key: "province", label: "省（区）", required: true },
           { key: "group", label: "集团" },
-          { key: "station", label: "场站" },
+          { key: "station", label: "场站名称" },
+          { key: "stationType", label: "场站类型" },
+          { key: "productType", label: "产品线" },
+          { key: "projectContent", label: "开工项目内容" },
           { key: "salesManager", label: "销售经理", required: true },
-          { key: "productType", label: "产品类型" },
-          { key: "applyDate", label: "申请日期", required: true },
-          { key: "contractNo", label: "关联合同号" },
+          { key: "briefingTime", label: "项目交底会时间" },
+          { key: "estimatedAmount", label: "预计合同金额(万元)", transform: v => parseFloat(v) || undefined },
+          { key: "estimatedCost", label: "预计成本(万元)", transform: v => parseFloat(v) || undefined },
+          { key: "actualAmount", label: "实际合同金额(万元)", transform: v => parseFloat(v) || undefined },
+          { key: "deliveryDept", label: "交付部门" },
+          { key: "projectManager", label: "项目经理" },
+          { key: "deliveryTime", label: "到货时间" },
+          { key: "acceptanceTime", label: "验收时间" },
+          { key: "notes", label: "备注" },
         ]}
         onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
       />
