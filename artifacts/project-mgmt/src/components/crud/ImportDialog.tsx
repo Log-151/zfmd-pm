@@ -99,7 +99,7 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
       for (const col of columns) {
         const idx = headers.findIndex(h => h === col.label || h === col.key);
         const val = idx >= 0 ? (row[idx] ?? "") : "";
-        obj[col.key] = col.transform ? col.transform(val) : val || undefined;
+        obj[col.key] = col.transform ? col.transform(val) : val;
       }
       try {
         await onImportRow(obj);

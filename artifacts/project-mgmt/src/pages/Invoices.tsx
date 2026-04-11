@@ -361,7 +361,7 @@ export default function Invoices() {
           { key: "customer", label: "开票单位", required: true },
           { key: "province", label: "省份", required: true },
           { key: "group", label: "集团" },
-          { key: "station", label: "场站名称" },
+          { key: "station", label: "场站名称", required: true },
           { key: "productLine", label: "产品线" },
           { key: "projectContent", label: "合同项目内容" },
           { key: "salesManager", label: "销售经理", required: true },
