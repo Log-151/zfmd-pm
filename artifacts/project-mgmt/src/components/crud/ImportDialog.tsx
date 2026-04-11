@@ -17,6 +17,7 @@ interface ImportDialogProps {
   onOpenChange: (v: boolean) => void;
   title: string;
   columns: ImportColumn[];
+  templateColumns?: { key: string; label: string }[];
   onImportRow: (row: Record<string, unknown>) => Promise<void>;
   templateFilename: string;
 }
@@ -49,7 +50,7 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
-export function ImportDialog({ open, onOpenChange, title, columns, onImportRow, templateFilename }: ImportDialogProps) {
+export function ImportDialog({ open, onOpenChange, title, columns, templateColumns, onImportRow, templateFilename }: ImportDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -78,7 +79,8 @@ export function ImportDialog({ open, onOpenChange, title, columns, onImportRow, 
   };
 
   const downloadTemplate = () => {
-    const header = columns.map(c => `"${c.label}"`).join(",");
+    const tplCols = templateColumns ?? columns;
+    const header = tplCols.map(c => `"${c.label}"`).join(",");
     const blob = new Blob(["\uFEFF" + header + "\n"], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -147,7 +149,7 @@ export function ImportDialog({ open, onOpenChange, title, columns, onImportRow, 
             </div>
             <div className="text-xs text-muted-foreground space-y-1.5">
               <p><span className="font-medium">必填列：</span>{columns.filter(c => c.required).map(c => c.label).join("、") || "无"}</p>
-              <p><span className="font-medium">全部列：</span>{columns.map(c => c.label).join("、")}</p>
+              <p><span className="font-medium">模板列顺序：</span>{(templateColumns ?? columns).map(c => c.label).join("、")}</p>
             </div>
           </div>
         ) : (

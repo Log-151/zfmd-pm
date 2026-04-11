@@ -35,6 +35,10 @@ export function useColumnOrder<T>(module: string, defaultCols: ColDef<T>[]) {
 
   const reorder = useCallback((keys: string[]) => {
     setOrder(keys);
+  }, []);
+
+  const save = useCallback(() => {
+    const keys = latestOrder.current.map(c => c.key);
     try { localStorage.setItem(storageKey(module), JSON.stringify(keys)); } catch {}
   }, [module]);
 
@@ -46,7 +50,7 @@ export function useColumnOrder<T>(module: string, defaultCols: ColDef<T>[]) {
 
   const getDragProps = (idx: number) => ({
     draggable: true as const,
-    title: "拖拽可调整列顺序",
+    title: "拖拽可调整列顺序，调整后点击「保存列顺序」生效",
     onDragStart: (e: React.DragEvent) => { e.dataTransfer.effectAllowed = "move"; dragSrcIdx.current = idx; },
     onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverIdx(idx); },
     onDragLeave: () => setDragOverIdx(null),
@@ -68,5 +72,5 @@ export function useColumnOrder<T>(module: string, defaultCols: ColDef<T>[]) {
     },
   });
 
-  return { orderedCols, reorder, reset, getDragProps };
+  return { orderedCols, save, reset, reorder, getDragProps };
 }

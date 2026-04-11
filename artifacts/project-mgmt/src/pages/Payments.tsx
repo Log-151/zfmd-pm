@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
 import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
@@ -64,7 +64,7 @@ export default function Payments() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("payments");
-  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("payments", PAYMENTS_COLS);
+  const { orderedCols, save: saveCols, getDragProps } = useColumnOrder("payments", PAYMENTS_COLS);
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -163,8 +163,8 @@ export default function Payments() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">回款管理</h1>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="重置列顺序" onClick={resetCols}><span className="text-xs">重置列</span></Button>
-          <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={saveCols}><Save className="w-4 h-4 mr-1" />保存列顺序</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="w-4 h-4 mr-1" />自定义字段</Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
           <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 登记回款</Button>
@@ -284,6 +284,7 @@ export default function Payments() {
       </AlertDialog>
 
       <ImportDialog open={showImport} onOpenChange={setShowImport} title="回款管理" templateFilename="回款导入模板.csv"
+        templateColumns={orderedCols.map(c => ({ key: c.key, label: c.header }))}
         columns={[
           { key: "paymentDate", label: "回款日期", required: true },
           { key: "payer", label: "付款单位", required: true },

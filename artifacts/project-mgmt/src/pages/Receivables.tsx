@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
 import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
@@ -90,7 +90,7 @@ export default function Receivables() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("receivables");
-  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("receivables", RECEIVABLES_COLS);
+  const { orderedCols, save: saveCols, getDragProps } = useColumnOrder("receivables", RECEIVABLES_COLS);
 
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("all");
@@ -240,7 +240,7 @@ export default function Receivables() {
             <SelectContent><SelectItem value="all">全部销售经理</SelectItem>{managers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" />批量导入</Button>
-          <Button variant="ghost" size="sm" onClick={resetCols}>重置列</Button>
+          <Button variant="outline" size="sm" onClick={saveCols}><Save className="h-4 w-4 mr-1" />保存列顺序</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出 CSV</Button>
           <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="h-4 w-4 mr-1" />自定义字段</Button>
           <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />新增</Button>
@@ -338,6 +338,7 @@ export default function Receivables() {
         onOpenChange={setShowImport}
         title="应收款明细"
         templateFilename="应收款明细导入模板.csv"
+        templateColumns={orderedCols.map(c => ({ key: c.key, label: c.header }))}
         columns={[
           { key: "salesManager", label: "签订合同销售经理", required: true },
           { key: "salesContact", label: "销售联系人" },

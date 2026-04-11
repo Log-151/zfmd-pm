@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertCircle } from "lucide-react";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertCircle, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
 import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
@@ -92,7 +92,7 @@ export default function Invoices() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("invoices");
-  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("invoices", INVOICES_COLS);
+  const { orderedCols, save: saveCols, getDragProps } = useColumnOrder("invoices", INVOICES_COLS);
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -213,8 +213,8 @@ export default function Invoices() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">开票管理</h1>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="重置列顺序" onClick={resetCols}><span className="text-xs">重置列</span></Button>
-          <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
+          <Button variant="outline" size="sm" onClick={saveCols}><Save className="w-4 h-4 mr-1" />保存列顺序</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="w-4 h-4 mr-1" />自定义字段</Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
           <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 申请开票</Button>
@@ -353,6 +353,7 @@ export default function Invoices() {
       </AlertDialog>
 
       <ImportDialog open={showImport} onOpenChange={setShowImport} title="开票管理" templateFilename="开票导入模板.csv"
+        templateColumns={orderedCols.map(c => ({ key: c.key, label: c.header }))}
         columns={[
           { key: "invoiceDate", label: "开票日期", required: true },
           { key: "applicationDate", label: "申请开票日期" },
