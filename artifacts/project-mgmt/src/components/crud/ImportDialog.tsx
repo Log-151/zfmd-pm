@@ -24,6 +24,19 @@ interface ImportDialogProps {
 
 type RowResult = { status: "pending" | "success" | "error"; message?: string };
 
+function normalizeHeader(s: string): string {
+  return s
+    .replace(/\uFEFF/g, "")
+    .trim()
+    .replace(/（/g, "(")
+    .replace(/）/g, ")")
+    .replace(/，/g, ",")
+    .replace(/：/g, ":")
+    .replace(/【/g, "[")
+    .replace(/】/g, "]")
+    .toLowerCase();
+}
+
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
@@ -93,12 +106,15 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
     const initial: RowResult[] = rows.map(() => ({ status: "pending" }));
     setResults([...initial]);
 
+    const normHeaders = headers.map(normalizeHeader);
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const obj: Record<string, unknown> = {};
       for (const col of columns) {
-        const idx = headers.findIndex(h => h === col.label || h === col.key);
-        const val = idx >= 0 ? (row[idx] ?? "") : "";
+        const normLabel = normalizeHeader(col.label);
+        const normKey = normalizeHeader(col.key);
+        const idx = normHeaders.findIndex(h => h === normLabel || h === normKey);
+        const val = idx >= 0 ? (row[idx] ?? "").trim() : "";
         obj[col.key] = col.transform ? col.transform(val) : val;
       }
       try {
