@@ -339,22 +339,43 @@ export default function Contracts() {
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
                 <TableHead>合同编号</TableHead>
+                <TableHead>合同变更号</TableHead>
+                <TableHead>开工申请编号</TableHead>
+                <TableHead>售后服务编号</TableHead>
                 <TableHead>客户名称</TableHead>
+                <TableHead>合同名称</TableHead>
+                <TableHead>一级公司</TableHead>
+                <TableHead>二级公司</TableHead>
+                <TableHead>三级公司</TableHead>
                 <TableHead>省份</TableHead>
                 <TableHead>集团</TableHead>
                 <TableHead>场站名称</TableHead>
+                <TableHead>其他名称</TableHead>
                 <TableHead>场站类别</TableHead>
+                <TableHead>场站容量</TableHead>
                 <TableHead>产品线</TableHead>
                 <TableHead>合同项目内容</TableHead>
+                <TableHead>项目编号</TableHead>
                 <TableHead>销售经理</TableHead>
                 <TableHead>销售联系人</TableHead>
+                <TableHead>合同存档日期</TableHead>
                 <TableHead>合同签订日期</TableHead>
-                <TableHead className="text-right">初装费</TableHead>
-                <TableHead className="text-right">预测服务费</TableHead>
-                <TableHead className="text-right">合同总额</TableHead>
-                <TableHead>开工号</TableHead>
+                <TableHead>合同存档原件/复印件</TableHead>
+                <TableHead>合同存档份数</TableHead>
+                <TableHead>服务收费起始时间</TableHead>
+                <TableHead>服务收费终止时间</TableHead>
+                <TableHead className="text-right">初装费(万元)</TableHead>
+                <TableHead className="text-right">预测服务费(万元)</TableHead>
+                <TableHead className="text-right">合同总额(万元)</TableHead>
+                <TableHead className="text-right">不含税合同金额(万元)</TableHead>
+                <TableHead>不算销售收入</TableHead>
+                <TableHead>不算销售业绩</TableHead>
+                <TableHead>保函开具情况</TableHead>
                 <TableHead>交付部门</TableHead>
                 <TableHead>项目经理</TableHead>
+                <TableHead>合同交底会时间</TableHead>
+                <TableHead className="text-right">第三方接口费(万元)</TableHead>
+                <TableHead>备注</TableHead>
                 <TableHead>状态</TableHead>
                 {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
@@ -362,29 +383,50 @@ export default function Contracts() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={40 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !contracts?.length ? (
-                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={40 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : (
                 contracts.map(contract => (
                   <TableRow key={contract.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium text-sm">{contract.contractNo}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).changeNo || "-"}</TableCell>
+                    <TableCell className="text-sm">{contract.workOrderNo || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).afterSaleNo || "-"}</TableCell>
                     <TableCell className="max-w-[130px] truncate text-sm" title={contract.customer}>{contract.customer}</TableCell>
+                    <TableCell className="max-w-[150px] truncate text-sm" title={(contract as any).contractName ?? ""}>{(contract as any).contractName || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).company1 || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).company2 || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).company3 || "-"}</TableCell>
                     <TableCell className="text-sm">{contract.province}</TableCell>
                     <TableCell className="text-sm">{contract.group || "-"}</TableCell>
                     <TableCell className="text-sm">{contract.station || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).otherName || "-"}</TableCell>
                     <TableCell className="text-sm">{(contract as any).stationType || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).stationCapacity || "-"}</TableCell>
                     <TableCell className="text-sm">{contract.productType}</TableCell>
                     <TableCell className="max-w-[120px] truncate text-sm" title={(contract as any).projectContent ?? ""}>{(contract as any).projectContent || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).projectNo || "-"}</TableCell>
                     <TableCell className="text-sm">{contract.salesManager}</TableCell>
                     <TableCell className="text-sm">{(contract as any).salesContact || "-"}</TableCell>
+                    <TableCell className="text-sm">{formatDate((contract as any).archiveDate)}</TableCell>
                     <TableCell className="text-sm">{formatDate(contract.signDate)}</TableCell>
-                    <TableCell className="text-right text-sm">{(contract as any).installFee ? formatWanYuan((contract as any).installFee) : "-"}</TableCell>
-                    <TableCell className="text-right text-sm">{(contract as any).serviceFee ? formatWanYuan((contract as any).serviceFee) : "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).archiveType || "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).archiveCopies || "-"}</TableCell>
+                    <TableCell className="text-sm">{formatDate(contract.startDate)}</TableCell>
+                    <TableCell className="text-sm">{formatDate(contract.endDate)}</TableCell>
+                    <TableCell className="text-right text-sm">{(contract as any).installFee != null ? formatWanYuan((contract as any).installFee) : "-"}</TableCell>
+                    <TableCell className="text-right text-sm">{(contract as any).serviceFee != null ? formatWanYuan((contract as any).serviceFee) : "-"}</TableCell>
                     <TableCell className="text-right font-medium text-sm">{formatWanYuan(contract.amountWithTax)}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{contract.workOrderNo || "-"}</TableCell>
+                    <TableCell className="text-right text-sm">{formatWanYuan(contract.amountWithoutTax)}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).excludeRevenue ? "是" : "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).excludePerformance ? "是" : "-"}</TableCell>
+                    <TableCell className="text-sm">{(contract as any).guaranteeLetter || "-"}</TableCell>
                     <TableCell className="text-sm">{(contract as any).deliveryDept || "-"}</TableCell>
                     <TableCell className="text-sm">{(contract as any).projectManager || "-"}</TableCell>
+                    <TableCell className="text-sm">{formatDate((contract as any).briefingDate)}</TableCell>
+                    <TableCell className="text-right text-sm">{(contract as any).thirdPartyFee != null ? formatWanYuan((contract as any).thirdPartyFee) : "-"}</TableCell>
+                    <TableCell className="max-w-[120px] truncate text-sm">{contract.notes || "-"}</TableCell>
                     <TableCell>
                       <Badge variant={contract.status === "执行中" ? "default" : "secondary"}>{contract.status}</Badge>
                     </TableCell>
