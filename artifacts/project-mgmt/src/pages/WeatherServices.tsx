@@ -15,6 +15,7 @@ import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -47,10 +48,29 @@ const EMPTY: Omit<WSItem, "id"> = {
 };
 
 
+const WS_COLS: ColDef<WSItem>[] = [
+  { key: "contractSalesManager", header: "签订合同销售经理", render: w => w.contractSalesManager, className: "text-xs whitespace-nowrap" },
+  { key: "salesManager", header: "销售经理", render: w => w.salesManager ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "province", header: "省（区）", render: w => w.province, className: "text-xs whitespace-nowrap" },
+  { key: "group", header: "集团", render: w => w.group, className: "text-xs whitespace-nowrap" },
+  { key: "station", header: "场站名称", render: w => w.station, className: "text-xs whitespace-nowrap" },
+  { key: "stationType", header: "场站类别", render: w => w.stationType ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "forecastStartDate", header: "开始预报时间", render: w => w.forecastStartDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "officialForecastDate", header: "正式预报时间", render: w => w.officialForecastDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "serviceEndDate", header: "服务合同到期时间", render: w => w.serviceEndDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "overdueMonths", header: "超期时间（月）", render: w => w.overdueMonths ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "isOverdue", header: "是否超期（是/否）", render: w => w.isOverdue ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "estimatedContractAmount", header: "预计签订服务合同金额（万元）", render: w => w.estimatedContractAmount ?? "", csvValue: w => w.estimatedContractAmount ?? "", className: "text-xs text-right" },
+  { key: "estimatedContractDate", header: "预计签订服务合同时间", render: w => w.estimatedContractDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "renewalNotes", header: "续签服务合同情况说明", render: w => w.renewalNotes ?? "", className: "text-xs max-w-[200px] truncate" },
+  { key: "notes", header: "备注", render: w => w.notes ?? "", className: "text-xs max-w-[120px] truncate" },
+];
+
 export default function WeatherServices() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("weather_services");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("weather_services", WS_COLS);
 
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("all");
@@ -68,9 +88,10 @@ export default function WeatherServices() {
   const deleteMut = useDeleteWeatherService();
 
   const filtered = useMemo(() => {
-    if (!search) return items as WSItem[];
+    const all = (items as unknown) as WSItem[];
+    if (!search) return all;
     const s = search.toLowerCase();
-    return (items as WSItem[]).filter(w =>
+    return all.filter(w =>
       w.contractSalesManager?.toLowerCase().includes(s) ||
       w.station?.toLowerCase().includes(s) ||
       w.province?.toLowerCase().includes(s) ||
@@ -79,7 +100,7 @@ export default function WeatherServices() {
     );
   }, [items, search]);
 
-  const provinces = useMemo(() => [...new Set((items as WSItem[]).map(w => w.province).filter(Boolean))].sort(), [items]);
+  const provinces = useMemo(() => [...new Set(((items as unknown) as WSItem[]).map(w => w.province).filter(Boolean))].sort(), [items]);
 
   function openCreate() { setForm({ ...EMPTY }); setCustomFieldValues({}); setShowCreate(true); }
   function openEdit(item: WSItem) {
@@ -167,16 +188,10 @@ export default function WeatherServices() {
   }
 
   function handleExport() {
-    exportToCsv(filtered.map(w => ({
-      "签订合同销售经理": w.contractSalesManager, "销售经理": w.salesManager ?? "",
-      "省（区）": w.province, "集团": w.group, "场站名称": w.station, "场站类别": w.stationType ?? "",
-      "开始预报时间": w.forecastStartDate ?? "", "正式预报时间": w.officialForecastDate ?? "",
-      "服务合同到期时间": w.serviceEndDate ?? "", "超期时间（月）": w.overdueMonths ?? "",
-      "是否超期（是/否）": w.isOverdue ?? "", "预计签订服务合同金额（万元）": w.estimatedContractAmount ?? "",
-      "预计签订服务合同时间": w.estimatedContractDate ?? "", "续签服务合同情况说明": w.renewalNotes ?? "",
-      "备注": w.notes ?? "",
-      ...Object.fromEntries(defs.map(d => [d.fieldLabel, String((w.customFields ?? {})[d.fieldName] ?? "")])),
-    })), "数值天气预报服务台账");
+    exportToCsv("数值天气预报服务台账", filtered as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as WSItem); const v = col.render(row as WSItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   }
 
   const FormField = ({ label, field, type = "text" }: { label: string; field: keyof typeof EMPTY; type?: string }) => (
@@ -203,6 +218,7 @@ export default function WeatherServices() {
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" />批量导入</Button>
+          <Button variant="ghost" size="sm" onClick={resetCols}>重置列</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出 CSV</Button>
           <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="h-4 w-4 mr-1" />自定义字段</Button>
           <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />新增</Button>
@@ -218,49 +234,25 @@ export default function WeatherServices() {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="text-xs whitespace-nowrap">序号</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">签订合同销售经理</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">销售经理</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">省（区）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">集团</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">场站名称</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">场站类别</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">开始预报时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">正式预报时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">服务合同到期时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">超期时间（月）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">是否超期（是/否）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">预计签订服务合同金额（万元）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">预计签订服务合同时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">续签服务合同情况说明</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">备注</TableHead>
+              {orderedCols.map((col, idx) => (
+                <TableHead key={col.key} {...getDragProps(idx)} className="text-xs whitespace-nowrap">{col.header}</TableHead>
+              ))}
               {defs.map(d => <TableHead key={d.fieldName} className="text-xs whitespace-nowrap">{d.fieldLabel}</TableHead>)}
               <TableHead className="text-xs">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={17 + defs.length} className="text-center text-muted-foreground py-8">加载中...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center text-muted-foreground py-8">加载中...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={17 + defs.length} className="text-center text-muted-foreground py-8">暂无数据</TableCell></TableRow>
+              <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center text-muted-foreground py-8">暂无数据</TableCell></TableRow>
             ) : filtered.map((w, idx) => (
               <TableRow key={w.id} className="hover:bg-muted/30">
                 <TableCell className="text-xs text-center">{idx + 1}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.contractSalesManager}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.salesManager ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.province}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.group}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.station}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.stationType ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.forecastStartDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.officialForecastDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.serviceEndDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.overdueMonths ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.isOverdue ?? ""}</TableCell>
-                <TableCell className="text-xs text-right">{w.estimatedContractAmount ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{w.estimatedContractDate ?? ""}</TableCell>
-                <TableCell className="text-xs max-w-[200px] truncate">{w.renewalNotes ?? ""}</TableCell>
-                <TableCell className="text-xs max-w-[120px] truncate">{w.notes ?? ""}</TableCell>
-                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String((w.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                {orderedCols.map(col => (
+                  <TableCell key={col.key} className={col.className}>{col.render(w as unknown as WSItem)}</TableCell>
+                ))}
+                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String(((w as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                 <TableCell>
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(w)}><Pencil className="h-3 w-3" /></Button>

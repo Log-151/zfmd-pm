@@ -56,6 +56,8 @@ A comprehensive project management system for a wind/solar energy forecasting co
 - **CSV export** — Per-module filtered export
 - **Table borders** — Global CSS (border-collapse + 1px border on th/td) applied across all module tables
 - **Excel column order compliance** — All 7 module tables exactly match their respective Excel source file column order (04-10)
+- **Draggable column headers** — All 6 data modules use `useColumnOrder` hook (localStorage key: `colorder_v1_{module}`) enabling HTML5 drag-to-reorder column headers; reset button restores default order; Payments/WeatherServices/Receivables have a non-orderable fixed 序号 column
+- **Custom field drag-to-reorder** — Custom field definitions can be reordered via drag in CustomFieldsManager; order persisted via `reorderDefs` in `use-custom-fields.ts`
 - **Mutation API** — All create/update/delete hooks use `{ data: ... }` and `{ id: number, data: ... }` patterns (NOT `body`/`pathParams`)
 
 ## Key Commands

@@ -15,6 +15,7 @@ import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -58,10 +59,38 @@ const EMPTY: Omit<RItem, "id"> = {
 };
 
 
+const RECEIVABLES_COLS: ColDef<RItem>[] = [
+  { key: "salesManager", header: "签订合同销售经理", render: r => r.salesManager, className: "text-xs whitespace-nowrap" },
+  { key: "salesContact", header: "销售联系人", render: r => r.salesContact ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "province", header: "省（区）", render: r => r.province, className: "text-xs whitespace-nowrap" },
+  { key: "group", header: "集团", render: r => r.group ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "station", header: "场站名称", render: r => r.station ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "contractNo", header: "合同编号", render: r => r.contractNo ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "productLine", header: "产品线", render: r => r.productLine ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "projectContent", header: "合同项目内容", render: r => r.projectContent ?? "", className: "text-xs max-w-[120px] truncate" },
+  { key: "contractAmount", header: "合同金额（万元）", render: r => r.contractAmount != null ? r.contractAmount.toFixed(2) : "", csvValue: r => r.contractAmount ?? "", className: "text-xs text-right" },
+  { key: "receivableName", header: "应收款项名称", render: r => r.receivableName ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "amount", header: "应收款金额", render: r => r.amount?.toFixed(2) ?? "", csvValue: r => r.amount, className: "text-xs text-right font-medium" },
+  { key: "receivableDate", header: "应收时间", render: r => r.receivableDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "pendingDate", header: "待工程实施进展确定回款时间", render: r => r.pendingDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "committedPeriodDate", header: "销售经理承诺进入回款期时间", render: r => r.committedPeriodDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "committedPaymentDate", header: "销售经理承诺回款时间", render: r => r.committedPaymentDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "committedAmount", header: "销售经理承诺回款金额", render: r => r.committedAmount != null ? r.committedAmount.toFixed(2) : "", csvValue: r => r.committedAmount ?? "", className: "text-xs text-right" },
+  { key: "actualPaymentDate", header: "实际回款时间", render: r => r.actualPaymentDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "actualAmount", header: "实际回款金额", render: r => r.actualAmount != null ? r.actualAmount.toFixed(2) : "", csvValue: r => r.actualAmount ?? "", className: "text-xs text-right" },
+  { key: "overdueMonths", header: "超期时间（月）", render: r => r.overdueMonths ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "actualInvoiceDate", header: "实际开票时间", render: r => r.actualInvoiceDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "actualDeliveryDate", header: "实际到货时间", render: r => r.actualDeliveryDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "actualAcceptanceDate", header: "实际验收时间", render: r => r.actualAcceptanceDate ?? "", className: "text-xs whitespace-nowrap" },
+  { key: "paymentTerms", header: "合同约定付款条件", render: r => r.paymentTerms ?? "", className: "text-xs max-w-[150px] truncate" },
+  { key: "notes", header: "备注", render: r => r.notes ?? "", className: "text-xs max-w-[100px] truncate" },
+];
+
 export default function Receivables() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("receivables");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("receivables", RECEIVABLES_COLS);
 
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("all");
@@ -174,21 +203,10 @@ export default function Receivables() {
   }
 
   function handleExport() {
-    exportToCsv(filtered.map(r => ({
-      "签订合同销售经理": r.salesManager, "销售联系人": r.salesContact ?? "",
-      "省（区）": r.province, "集团": r.group ?? "", "场站名称": r.station ?? "",
-      "合同编号": r.contractNo ?? "", "产品线": r.productLine ?? "",
-      "合同项目内容": r.projectContent ?? "", "合同金额（万元）": r.contractAmount ?? "",
-      "应收款项名称": r.receivableName ?? "", "应收款金额": r.amount ?? "",
-      "应收时间": r.receivableDate ?? "", "待工程实施进展确定回款时间": r.pendingDate ?? "",
-      "销售经理承诺进入回款期时间": r.committedPeriodDate ?? "", "销售经理承诺回款时间": r.committedPaymentDate ?? "",
-      "销售经理承诺回款金额": r.committedAmount ?? "", "实际回款时间": r.actualPaymentDate ?? "",
-      "实际回款金额": r.actualAmount ?? "", "超期时间（月）": r.overdueMonths ?? "",
-      "实际开票时间": r.actualInvoiceDate ?? "", "实际到货时间": r.actualDeliveryDate ?? "",
-      "实际验收时间": r.actualAcceptanceDate ?? "", "合同约定付款条件": r.paymentTerms ?? "",
-      "备注": r.notes ?? "",
-      ...Object.fromEntries(defs.map(d => [d.fieldLabel, String((r.customFields ?? {})[d.fieldName] ?? "")])),
-    })), "执行中合同应收款明细台账");
+    exportToCsv("执行中合同应收款明细台账", filtered as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as RItem); const v = col.render(row as RItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   }
 
   const NumInput = ({ label, field }: { label: string; field: keyof typeof EMPTY }) => (
@@ -222,6 +240,7 @@ export default function Receivables() {
             <SelectContent><SelectItem value="all">全部销售经理</SelectItem>{managers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
           </Select>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" />批量导入</Button>
+          <Button variant="ghost" size="sm" onClick={resetCols}>重置列</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出 CSV</Button>
           <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="h-4 w-4 mr-1" />自定义字段</Button>
           <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />新增</Button>
@@ -239,67 +258,25 @@ export default function Receivables() {
           <TableHeader>
             <TableRow className="bg-muted/50">
               <TableHead className="text-xs whitespace-nowrap">序号</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">签订合同销售经理</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">销售联系人</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">省（区）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">集团</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">场站名称</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">合同编号</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">产品线</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">合同项目内容</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">合同金额（万元）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">应收款项名称</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">应收款金额</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">应收时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">待工程实施进展确定回款时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">销售经理承诺进入回款期时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">销售经理承诺回款时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">销售经理承诺回款金额</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">实际回款时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">实际回款金额</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">超期时间（月）</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">实际开票时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">实际到货时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">实际验收时间</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">合同约定付款条件</TableHead>
-              <TableHead className="text-xs whitespace-nowrap">备注</TableHead>
+              {orderedCols.map((col, idx) => (
+                <TableHead key={col.key} {...getDragProps(idx)} className="text-xs whitespace-nowrap">{col.header}</TableHead>
+              ))}
               {defs.map(d => <TableHead key={d.fieldName} className="text-xs whitespace-nowrap">{d.fieldLabel}</TableHead>)}
               <TableHead className="text-xs">操作</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={26 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={26 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+              <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
             ) : filtered.map((r, idx) => (
               <TableRow key={r.id} className="hover:bg-muted/30">
                 <TableCell className="text-xs text-center">{idx + 1}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.salesManager}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.salesContact ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.province}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.group ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.station ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.contractNo ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.productLine ?? ""}</TableCell>
-                <TableCell className="text-xs max-w-[120px] truncate">{r.projectContent ?? ""}</TableCell>
-                <TableCell className="text-xs text-right">{r.contractAmount != null ? r.contractAmount.toFixed(2) : ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.receivableName ?? ""}</TableCell>
-                <TableCell className="text-xs text-right font-medium">{r.amount?.toFixed(2) ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.receivableDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.pendingDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.committedPeriodDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.committedPaymentDate ?? ""}</TableCell>
-                <TableCell className="text-xs text-right">{r.committedAmount != null ? r.committedAmount.toFixed(2) : ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.actualPaymentDate ?? ""}</TableCell>
-                <TableCell className="text-xs text-right">{r.actualAmount != null ? r.actualAmount.toFixed(2) : ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.overdueMonths ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.actualInvoiceDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.actualDeliveryDate ?? ""}</TableCell>
-                <TableCell className="text-xs whitespace-nowrap">{r.actualAcceptanceDate ?? ""}</TableCell>
-                <TableCell className="text-xs max-w-[150px] truncate">{r.paymentTerms ?? ""}</TableCell>
-                <TableCell className="text-xs max-w-[100px] truncate">{r.notes ?? ""}</TableCell>
-                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String((r.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                {orderedCols.map(col => (
+                  <TableCell key={col.key} className={col.className}>{col.render(r as unknown as RItem)}</TableCell>
+                ))}
+                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String(((r as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                 <TableCell>
                   <div className="flex gap-1">
                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(r)}><Pencil className="h-3 w-3" /></Button>

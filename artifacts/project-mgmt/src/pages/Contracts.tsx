@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -89,10 +90,53 @@ const EMPTY_FORM = {
   isSpecial: false, notes: "",
 };
 
+const CONTRACTS_COLS: ColDef<ContractItem>[] = [
+  { key: "contractNo", header: "合同编号", render: c => c.contractNo, className: "font-medium text-sm" },
+  { key: "changeNo", header: "合同变更号", render: c => (c as any).changeNo || "-", className: "text-sm" },
+  { key: "workOrderNo", header: "开工申请编号", render: c => c.workOrderNo || "-", className: "text-sm" },
+  { key: "afterSaleNo", header: "售后服务编号", render: c => (c as any).afterSaleNo || "-", className: "text-sm" },
+  { key: "customer", header: "客户名称", render: c => c.customer, className: "max-w-[130px] truncate text-sm" },
+  { key: "contractName", header: "合同名称", render: c => (c as any).contractName || "-", className: "max-w-[150px] truncate text-sm" },
+  { key: "company1", header: "一级公司", render: c => (c as any).company1 || "-", className: "text-sm" },
+  { key: "company2", header: "二级公司", render: c => (c as any).company2 || "-", className: "text-sm" },
+  { key: "company3", header: "三级公司", render: c => (c as any).company3 || "-", className: "text-sm" },
+  { key: "province", header: "省份", render: c => c.province, className: "text-sm" },
+  { key: "group", header: "集团", render: c => c.group || "-", className: "text-sm" },
+  { key: "station", header: "场站名称", render: c => c.station || "-", className: "text-sm" },
+  { key: "otherName", header: "其他名称", render: c => (c as any).otherName || "-", className: "text-sm" },
+  { key: "stationType", header: "场站类别", render: c => (c as any).stationType || "-", className: "text-sm" },
+  { key: "stationCapacity", header: "场站容量", render: c => (c as any).stationCapacity || "-", className: "text-sm" },
+  { key: "productType", header: "产品线", render: c => c.productType, className: "text-sm" },
+  { key: "projectContent", header: "合同项目内容", render: c => (c as any).projectContent || "-", className: "max-w-[120px] truncate text-sm" },
+  { key: "projectNo", header: "项目编号", render: c => (c as any).projectNo || "-", className: "text-sm" },
+  { key: "salesManager", header: "销售经理", render: c => c.salesManager, className: "text-sm" },
+  { key: "salesContact", header: "销售联系人", render: c => (c as any).salesContact || "-", className: "text-sm" },
+  { key: "archiveDate", header: "合同存档日期", render: c => formatDate((c as any).archiveDate), csvValue: c => (c as any).archiveDate ?? "", className: "text-sm" },
+  { key: "signDate", header: "合同签订日期", render: c => formatDate(c.signDate), csvValue: c => c.signDate ?? "", className: "text-sm" },
+  { key: "archiveType", header: "合同存档原件/复印件", render: c => (c as any).archiveType || "-", className: "text-sm" },
+  { key: "archiveCopies", header: "合同存档份数", render: c => (c as any).archiveCopies || "-", className: "text-sm" },
+  { key: "startDate", header: "服务收费起始时间", render: c => formatDate(c.startDate), csvValue: c => c.startDate ?? "", className: "text-sm" },
+  { key: "endDate", header: "服务收费终止时间", render: c => formatDate(c.endDate), csvValue: c => c.endDate ?? "", className: "text-sm" },
+  { key: "installFee", header: "初装费(万元)", render: c => (c as any).installFee != null ? formatWanYuan((c as any).installFee) : "-", csvValue: c => (c as any).installFee ?? "", className: "text-right text-sm" },
+  { key: "serviceFee", header: "预测服务费(万元)", render: c => (c as any).serviceFee != null ? formatWanYuan((c as any).serviceFee) : "-", csvValue: c => (c as any).serviceFee ?? "", className: "text-right text-sm" },
+  { key: "amountWithTax", header: "合同总额(万元)", render: c => formatWanYuan(c.amountWithTax), csvValue: c => c.amountWithTax, className: "text-right font-medium text-sm" },
+  { key: "amountWithoutTax", header: "不含税合同金额(万元)", render: c => formatWanYuan(c.amountWithoutTax), csvValue: c => c.amountWithoutTax, className: "text-right text-sm" },
+  { key: "excludeRevenue", header: "不算销售收入", render: c => (c as any).excludeRevenue ? "是" : "-", csvValue: c => (c as any).excludeRevenue ? "是" : "", className: "text-sm" },
+  { key: "excludePerformance", header: "不算销售业绩", render: c => (c as any).excludePerformance ? "是" : "-", csvValue: c => (c as any).excludePerformance ? "是" : "", className: "text-sm" },
+  { key: "guaranteeLetter", header: "保函开具情况", render: c => (c as any).guaranteeLetter || "-", className: "text-sm" },
+  { key: "deliveryDept", header: "交付部门", render: c => (c as any).deliveryDept || "-", className: "text-sm" },
+  { key: "projectManager", header: "项目经理", render: c => (c as any).projectManager || "-", className: "text-sm" },
+  { key: "briefingDate", header: "合同交底会时间", render: c => formatDate((c as any).briefingDate), csvValue: c => (c as any).briefingDate ?? "", className: "text-sm" },
+  { key: "thirdPartyFee", header: "第三方接口费(万元)", render: c => (c as any).thirdPartyFee != null ? formatWanYuan((c as any).thirdPartyFee) : "-", csvValue: c => (c as any).thirdPartyFee ?? "", className: "text-right text-sm" },
+  { key: "notes", header: "备注", render: c => c.notes || "-", className: "max-w-[120px] truncate text-sm" },
+  { key: "status", header: "状态", render: c => <Badge variant={c.status === "执行中" ? "default" : "secondary"}>{c.status}</Badge>, csvValue: c => c.status },
+];
+
 export default function Contracts() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("contracts");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("contracts", CONTRACTS_COLS);
 
   const [search, setSearch] = useState("");
   const [year, setYear] = useState("all");
@@ -244,47 +288,10 @@ export default function Contracts() {
 
   const handleExport = () => {
     if (!contracts) return;
-    exportToCsv("合同列表", contracts, [
-      { header: "合同编号", accessor: c => c.contractNo },
-      { header: "合同变更号", accessor: c => (c as any).changeNo ?? "" },
-      { header: "开工申请编号", accessor: c => c.workOrderNo ?? "" },
-      { header: "售后服务编号", accessor: c => c.afterSaleNo ?? "" },
-      { header: "客户名称", accessor: c => c.customer },
-      { header: "合同名称", accessor: c => c.contractName },
-      { header: "一级公司", accessor: c => (c as any).company1 ?? "" },
-      { header: "二级公司", accessor: c => (c as any).company2 ?? "" },
-      { header: "三级公司", accessor: c => (c as any).company3 ?? "" },
-      { header: "省份", accessor: c => c.province },
-      { header: "集团", accessor: c => c.group },
-      { header: "场站名称", accessor: c => c.station },
-      { header: "其他名称", accessor: c => (c as any).otherName ?? "" },
-      { header: "场站类别", accessor: c => (c as any).stationType ?? "" },
-      { header: "场站容量", accessor: c => (c as any).stationCapacity ?? "" },
-      { header: "产品线", accessor: c => c.productType },
-      { header: "合同项目内容", accessor: c => (c as any).projectContent ?? "" },
-      { header: "项目编号", accessor: c => (c as any).projectNo ?? "" },
-      { header: "销售经理", accessor: c => c.salesManager },
-      { header: "销售联系人", accessor: c => (c as any).salesContact ?? "" },
-      { header: "合同存档日期", accessor: c => formatDate((c as any).archiveDate) },
-      { header: "合同签订日期", accessor: c => formatDate(c.signDate) },
-      { header: "合同存档原件/复印件", accessor: c => (c as any).archiveType ?? "" },
-      { header: "合同存档份数", accessor: c => (c as any).archiveCopies ?? "" },
-      { header: "服务收费起始时间", accessor: c => formatDate(c.startDate) },
-      { header: "服务收费终止时间", accessor: c => formatDate(c.endDate) },
-      { header: "初装费(万元)", accessor: c => (c as any).installFee ?? "" },
-      { header: "预测服务费(万元)", accessor: c => (c as any).serviceFee ?? "" },
-      { header: "合同总额(万元)", accessor: c => c.amountWithTax },
-      { header: "不含税合同金额(万元)", accessor: c => c.amountWithoutTax },
-      { header: "不算销售收入", accessor: c => (c as any).excludeRevenue ? "是" : "" },
-      { header: "不算销售业绩", accessor: c => (c as any).excludePerformance ? "是" : "" },
-      { header: "保函开具情况", accessor: c => (c as any).guaranteeLetter ?? "" },
-      { header: "交付部门", accessor: c => (c as any).deliveryDept ?? "" },
-      { header: "项目经理", accessor: c => (c as any).projectManager ?? "" },
-      { header: "合同交底会时间", accessor: c => formatDate((c as any).briefingDate) },
-      { header: "第三方接口费(万元)", accessor: c => (c as any).thirdPartyFee ?? "" },
-      { header: "备注", accessor: c => c.notes ?? "" },
-      { header: "状态", accessor: c => c.status },
-    ]);
+    exportToCsv("合同列表", contracts as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as ContractItem); const v = col.render(row as ContractItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   };
 
   return (
@@ -293,6 +300,7 @@ export default function Contracts() {
         <h1 className="text-2xl font-bold tracking-tight text-primary">合同管理</h1>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground h-8" onClick={resetCols} title="恢复默认列顺序">重置列顺序</Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
           <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 新建合同</Button>
@@ -338,99 +346,25 @@ export default function Contracts() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>合同编号</TableHead>
-                <TableHead>合同变更号</TableHead>
-                <TableHead>开工申请编号</TableHead>
-                <TableHead>售后服务编号</TableHead>
-                <TableHead>客户名称</TableHead>
-                <TableHead>合同名称</TableHead>
-                <TableHead>一级公司</TableHead>
-                <TableHead>二级公司</TableHead>
-                <TableHead>三级公司</TableHead>
-                <TableHead>省份</TableHead>
-                <TableHead>集团</TableHead>
-                <TableHead>场站名称</TableHead>
-                <TableHead>其他名称</TableHead>
-                <TableHead>场站类别</TableHead>
-                <TableHead>场站容量</TableHead>
-                <TableHead>产品线</TableHead>
-                <TableHead>合同项目内容</TableHead>
-                <TableHead>项目编号</TableHead>
-                <TableHead>销售经理</TableHead>
-                <TableHead>销售联系人</TableHead>
-                <TableHead>合同存档日期</TableHead>
-                <TableHead>合同签订日期</TableHead>
-                <TableHead>合同存档原件/复印件</TableHead>
-                <TableHead>合同存档份数</TableHead>
-                <TableHead>服务收费起始时间</TableHead>
-                <TableHead>服务收费终止时间</TableHead>
-                <TableHead className="text-right">初装费(万元)</TableHead>
-                <TableHead className="text-right">预测服务费(万元)</TableHead>
-                <TableHead className="text-right">合同总额(万元)</TableHead>
-                <TableHead className="text-right">不含税合同金额(万元)</TableHead>
-                <TableHead>不算销售收入</TableHead>
-                <TableHead>不算销售业绩</TableHead>
-                <TableHead>保函开具情况</TableHead>
-                <TableHead>交付部门</TableHead>
-                <TableHead>项目经理</TableHead>
-                <TableHead>合同交底会时间</TableHead>
-                <TableHead className="text-right">第三方接口费(万元)</TableHead>
-                <TableHead>备注</TableHead>
-                <TableHead>状态</TableHead>
+                {orderedCols.map((col, idx) => (
+                  <TableHead key={col.key} className="whitespace-nowrap select-none" {...getDragProps(idx)}>{col.header}</TableHead>
+                ))}
                 {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={40 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !contracts?.length ? (
-                <TableRow><TableCell colSpan={40 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : (
                 contracts.map(contract => (
                   <TableRow key={contract.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium text-sm">{contract.contractNo}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).changeNo || "-"}</TableCell>
-                    <TableCell className="text-sm">{contract.workOrderNo || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).afterSaleNo || "-"}</TableCell>
-                    <TableCell className="max-w-[130px] truncate text-sm" title={contract.customer}>{contract.customer}</TableCell>
-                    <TableCell className="max-w-[150px] truncate text-sm" title={(contract as any).contractName ?? ""}>{(contract as any).contractName || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).company1 || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).company2 || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).company3 || "-"}</TableCell>
-                    <TableCell className="text-sm">{contract.province}</TableCell>
-                    <TableCell className="text-sm">{contract.group || "-"}</TableCell>
-                    <TableCell className="text-sm">{contract.station || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).otherName || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).stationType || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).stationCapacity || "-"}</TableCell>
-                    <TableCell className="text-sm">{contract.productType}</TableCell>
-                    <TableCell className="max-w-[120px] truncate text-sm" title={(contract as any).projectContent ?? ""}>{(contract as any).projectContent || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).projectNo || "-"}</TableCell>
-                    <TableCell className="text-sm">{contract.salesManager}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).salesContact || "-"}</TableCell>
-                    <TableCell className="text-sm">{formatDate((contract as any).archiveDate)}</TableCell>
-                    <TableCell className="text-sm">{formatDate(contract.signDate)}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).archiveType || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).archiveCopies || "-"}</TableCell>
-                    <TableCell className="text-sm">{formatDate(contract.startDate)}</TableCell>
-                    <TableCell className="text-sm">{formatDate(contract.endDate)}</TableCell>
-                    <TableCell className="text-right text-sm">{(contract as any).installFee != null ? formatWanYuan((contract as any).installFee) : "-"}</TableCell>
-                    <TableCell className="text-right text-sm">{(contract as any).serviceFee != null ? formatWanYuan((contract as any).serviceFee) : "-"}</TableCell>
-                    <TableCell className="text-right font-medium text-sm">{formatWanYuan(contract.amountWithTax)}</TableCell>
-                    <TableCell className="text-right text-sm">{formatWanYuan(contract.amountWithoutTax)}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).excludeRevenue ? "是" : "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).excludePerformance ? "是" : "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).guaranteeLetter || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).deliveryDept || "-"}</TableCell>
-                    <TableCell className="text-sm">{(contract as any).projectManager || "-"}</TableCell>
-                    <TableCell className="text-sm">{formatDate((contract as any).briefingDate)}</TableCell>
-                    <TableCell className="text-right text-sm">{(contract as any).thirdPartyFee != null ? formatWanYuan((contract as any).thirdPartyFee) : "-"}</TableCell>
-                    <TableCell className="max-w-[120px] truncate text-sm">{contract.notes || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={contract.status === "执行中" ? "default" : "secondary"}>{contract.status}</Badge>
-                    </TableCell>
-                    {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((contract.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                    {orderedCols.map(col => (
+                      <TableCell key={col.key} className={col.className}>{col.render(contract as unknown as ContractItem)}</TableCell>
+                    ))}
+                    {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String(((contract as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(contract as any)}><Pencil className="h-3.5 w-3.5" /></Button>

@@ -16,6 +16,7 @@ import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -39,10 +40,31 @@ const EMPTY = {
   customFields: {} as Record<string, unknown> | null,
 };
 
+const PAYMENTS_COLS: ColDef<PaymentItem>[] = [
+  { key: "paymentDate", header: "回款日期", render: p => formatDate(p.paymentDate), csvValue: p => p.paymentDate, className: "text-xs whitespace-nowrap" },
+  { key: "payer", header: "付款单位", render: p => p.payer, className: "text-xs max-w-[120px] truncate" },
+  { key: "province", header: "省（区）", render: p => p.province, className: "text-xs whitespace-nowrap" },
+  { key: "group", header: "集团", render: p => p.group || "", className: "text-xs whitespace-nowrap" },
+  { key: "station", header: "场站名称", render: p => p.station || "", className: "text-xs whitespace-nowrap" },
+  { key: "productLine", header: "产品线", render: p => p.productLine || "", className: "text-xs whitespace-nowrap" },
+  { key: "projectContent", header: "合同项目内容", render: p => p.projectContent || "", className: "text-xs max-w-[120px] truncate" },
+  { key: "contractNo", header: "合同号", render: p => p.contractNo || "", className: "text-xs whitespace-nowrap" },
+  { key: "billAmount", header: "汇票回款(元)", render: p => p.billAmount || "", csvValue: p => p.billAmount ?? "", className: "text-xs text-right" },
+  { key: "cashAmount", header: "现金回款(元)", render: p => p.cashAmount || "", csvValue: p => p.cashAmount ?? "", className: "text-xs text-right" },
+  { key: "paymentRatio", header: "回款比例", render: p => p.paymentRatio ? `${(p.paymentRatio * 100).toFixed(1)}%` : "", csvValue: p => p.paymentRatio ?? "", className: "text-xs text-right" },
+  { key: "paymentItemName", header: "款项名称", render: p => p.paymentItemName || "", className: "text-xs whitespace-nowrap" },
+  { key: "salesManager", header: "签订合同销售经理", render: p => p.salesManager, className: "text-xs whitespace-nowrap" },
+  { key: "salesContact", header: "销售联系人", render: p => p.salesContact || "", className: "text-xs whitespace-nowrap" },
+  { key: "notes", header: "备注", render: p => p.notes || "", className: "text-xs max-w-[100px] truncate" },
+  { key: "paymentType", header: "类型", render: p => p.paymentType || "", className: "text-xs whitespace-nowrap" },
+  { key: "amount", header: "合同金额(元)", render: p => p.amount, csvValue: p => p.amount, className: "text-xs text-right font-medium text-emerald-600" },
+];
+
 export default function Payments() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("payments");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("payments", PAYMENTS_COLS);
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -130,27 +152,10 @@ export default function Payments() {
 
   const handleExport = () => {
     if (!payments) return;
-    const rows = (payments as PaymentItem[]).map(p => ({
-      "回款日期": formatDate(p.paymentDate),
-      "付款单位": p.payer,
-      "省（区）": p.province,
-      "集团": p.group,
-      "场站名称": p.station ?? "",
-      "产品线": p.productLine ?? "",
-      "合同项目内容": p.projectContent ?? "",
-      "合同号": p.contractNo ?? "",
-      "汇票回款(元)": p.billAmount ?? "",
-      "现金回款(元)": p.cashAmount ?? "",
-      "回款比例": p.paymentRatio ?? "",
-      "款项名称": p.paymentItemName ?? "",
-      "签订合同销售经理": p.salesManager,
-      "销售联系人": p.salesContact ?? "",
-      "备注": p.notes ?? "",
-      "类型": p.paymentType ?? "",
-      "合同金额(元)": p.amount,
-      ...Object.fromEntries(defs.map(d => [d.fieldLabel, String((p.customFields ?? {})[d.fieldName] ?? "")])),
-    }));
-    exportToCsv(rows, "回款台账");
+    exportToCsv("回款台账", payments as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as PaymentItem); const v = col.render(row as PaymentItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   };
 
   return (
@@ -158,6 +163,7 @@ export default function Payments() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">回款管理</h1>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" title="重置列顺序" onClick={resetCols}><span className="text-xs">重置列</span></Button>
           <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
@@ -205,53 +211,25 @@ export default function Payments() {
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
                 <TableHead className="text-xs whitespace-nowrap">序号</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">回款日期</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">付款单位</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">省（区）</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">集团</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">场站名称</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">产品线</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">合同项目内容</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">合同号</TableHead>
-                <TableHead className="text-xs text-right whitespace-nowrap">汇票回款(元)</TableHead>
-                <TableHead className="text-xs text-right whitespace-nowrap">现金回款(元)</TableHead>
-                <TableHead className="text-xs text-right whitespace-nowrap">回款比例</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">款项名称</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">签订合同销售经理</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">销售联系人</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">备注</TableHead>
-                <TableHead className="text-xs whitespace-nowrap">类型</TableHead>
-                <TableHead className="text-xs text-right whitespace-nowrap">合同金额(元)</TableHead>
+                {orderedCols.map((col, idx) => (
+                  <TableHead key={col.key} {...getDragProps(idx)} className="text-xs whitespace-nowrap">{col.header}</TableHead>
+                ))}
                 {defs.map(d => <TableHead key={d.fieldName} className="text-xs whitespace-nowrap">{d.fieldLabel}</TableHead>)}
                 <TableHead className="text-xs w-[60px]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={14 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !payments?.length ? (
-                <TableRow><TableCell colSpan={14 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
-              ) : (payments as PaymentItem[]).map((p, idx) => (
+                <TableRow><TableCell colSpan={orderedCols.length + 2 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+              ) : (payments as unknown as PaymentItem[]).map((p, idx) => (
                 <TableRow key={p.id} className="hover:bg-muted/30">
                   <TableCell className="text-xs text-center">{idx + 1}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{formatDate(p.paymentDate)}</TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate">{p.payer}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.province}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.group || ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.station || ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.productLine || ""}</TableCell>
-                  <TableCell className="text-xs max-w-[120px] truncate">{p.projectContent || ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.contractNo || ""}</TableCell>
-                  <TableCell className="text-xs text-right">{p.billAmount || ""}</TableCell>
-                  <TableCell className="text-xs text-right">{p.cashAmount || ""}</TableCell>
-                  <TableCell className="text-xs text-right">{p.paymentRatio ? `${(p.paymentRatio * 100).toFixed(1)}%` : ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.paymentItemName || ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.salesManager}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.salesContact || ""}</TableCell>
-                  <TableCell className="text-xs max-w-[100px] truncate">{p.notes || ""}</TableCell>
-                  <TableCell className="text-xs whitespace-nowrap">{p.paymentType || ""}</TableCell>
-                  <TableCell className="text-xs text-right font-medium text-emerald-600">{p.amount}</TableCell>
-                  {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String((p.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                  {orderedCols.map(col => (
+                    <TableCell key={col.key} className={col.className}>{col.render(p)}</TableCell>
+                  ))}
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String(((p as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditItem(p)}><Pencil className="h-3 w-3" /></Button>

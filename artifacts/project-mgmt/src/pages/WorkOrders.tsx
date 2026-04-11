@@ -15,6 +15,7 @@ import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -65,10 +66,34 @@ const EMPTY = {
 
 const PRODUCT_TYPES = ["风电功率预测", "光伏功率预测", "数值天气预报", "网络安全监测装置", "综合预测平台", "其他"];
 
+const fmtAmt = (v: number | null | undefined) => v != null ? `${v.toFixed(2)}万` : "-";
+
+const WORKORDERS_COLS: ColDef<WorkOrderItem>[] = [
+  { key: "workOrderNo", header: "开工申请编号", render: w => w.workOrderNo, className: "font-medium text-sm" },
+  { key: "changeNo", header: "变更编号", render: w => w.changeNo || "-", className: "text-sm text-muted-foreground" },
+  { key: "contractNo", header: "对应合同编号", render: w => w.contractNo || "-", className: "text-sm text-muted-foreground" },
+  { key: "province", header: "省（区）", render: w => w.province, className: "text-sm" },
+  { key: "group", header: "集团", render: w => w.group || "-", className: "text-sm" },
+  { key: "station", header: "场站名称", render: w => w.station || "-", className: "text-sm" },
+  { key: "stationType", header: "场站类型", render: w => w.stationType || "-", className: "text-sm" },
+  { key: "productType", header: "产品线", render: w => w.productType, className: "text-sm" },
+  { key: "projectContent", header: "开工项目内容", render: w => w.projectContent || "-", className: "text-sm max-w-[130px] truncate" },
+  { key: "salesManager", header: "销售经理", render: w => w.salesManager, className: "text-sm" },
+  { key: "circulationTime", header: "流转时间", render: w => w.circulationTime || "-", className: "text-sm" },
+  { key: "estimatedAmount", header: "预计合同额", render: w => fmtAmt(w.estimatedAmount), csvValue: w => w.estimatedAmount ?? "", className: "text-right text-sm" },
+  { key: "estimatedCost", header: "预计成本", render: w => fmtAmt(w.estimatedCost), csvValue: w => w.estimatedCost ?? "", className: "text-right text-sm" },
+  { key: "actualAmount", header: "实际合同额", render: w => fmtAmt(w.actualAmount), csvValue: w => w.actualAmount ?? "", className: "text-right text-sm" },
+  { key: "deliveryDept", header: "交付部门", render: w => w.deliveryDept || "-", className: "text-sm" },
+  { key: "projectManager", header: "项目经理", render: w => w.projectManager || "-", className: "text-sm" },
+  { key: "deliveryTime", header: "到货时间", render: w => w.deliveryTime || "-", className: "text-sm" },
+  { key: "acceptanceTime", header: "验收时间", render: w => w.acceptanceTime || "-", className: "text-sm" },
+];
+
 export default function WorkOrders() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("work_orders");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("work_orders", WORKORDERS_COLS);
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -209,40 +234,18 @@ export default function WorkOrders() {
   const f = (k: keyof typeof EMPTY, v: unknown) => setForm(p => ({ ...p, [k]: v }));
 
   const handleExport = () => {
-    exportToCsv("开工申请列表", filtered, [
-      { header: "开工申请编号", accessor: w => w.workOrderNo },
-      { header: "开工变更申请表编号", accessor: w => w.changeNo ?? "" },
-      { header: "对应合同编号", accessor: w => w.contractNo ?? "" },
-      { header: "开工申请取消时间", accessor: w => w.cancelTime ?? "" },
-      { header: "是否发生成本费用", accessor: w => w.costIncurred ?? "" },
-      { header: "成本费用处理", accessor: w => w.costHandling ?? "" },
-      { header: "开工申请流转时间", accessor: w => w.circulationTime ?? "" },
-      { header: "省（区）", accessor: w => w.province },
-      { header: "集团", accessor: w => w.group },
-      { header: "场站名称", accessor: w => w.station },
-      { header: "场站类型", accessor: w => w.stationType ?? "" },
-      { header: "产品线", accessor: w => w.productType },
-      { header: "开工项目内容", accessor: w => w.projectContent ?? "" },
-      { header: "销售经理", accessor: w => w.salesManager },
-      { header: "项目交底会时间", accessor: w => w.briefingTime ?? "" },
-      { header: "预计合同金额", accessor: w => w.estimatedAmount ?? "" },
-      { header: "预计成本", accessor: w => w.estimatedCost ?? "" },
-      { header: "实际合同金额", accessor: w => w.actualAmount ?? "" },
-      { header: "交付部门", accessor: w => w.deliveryDept ?? "" },
-      { header: "项目经理", accessor: w => w.projectManager ?? "" },
-      { header: "到货时间", accessor: w => w.deliveryTime ?? "" },
-      { header: "验收时间", accessor: w => w.acceptanceTime ?? "" },
-      { header: "备注", accessor: w => w.notes ?? "" },
-    ]);
+    exportToCsv("开工申请列表", filtered as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as WorkOrderItem); const v = col.render(row as WorkOrderItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   };
-
-  const fmtAmt = (v: number | null) => v != null ? `${v.toFixed(2)}万` : "-";
 
   return (
     <div className="space-y-4 flex flex-col h-full">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">开工申请</h1>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" title="重置列顺序" onClick={resetCols}><span className="text-xs">重置列</span></Button>
           <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
@@ -289,55 +292,25 @@ export default function WorkOrders() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>开工申请编号</TableHead>
-                <TableHead>变更编号</TableHead>
-                <TableHead>对应合同编号</TableHead>
-                <TableHead>省（区）</TableHead>
-                <TableHead>集团</TableHead>
-                <TableHead>场站名称</TableHead>
-                <TableHead>场站类型</TableHead>
-                <TableHead>产品线</TableHead>
-                <TableHead>开工项目内容</TableHead>
-                <TableHead>销售经理</TableHead>
-                <TableHead>流转时间</TableHead>
-                <TableHead className="text-right">预计合同额</TableHead>
-                <TableHead className="text-right">预计成本</TableHead>
-                <TableHead className="text-right">实际合同额</TableHead>
-                <TableHead>交付部门</TableHead>
-                <TableHead>项目经理</TableHead>
-                <TableHead>到货时间</TableHead>
-                <TableHead>验收时间</TableHead>
+                {orderedCols.map((col, idx) => (
+                  <TableHead key={col.key} {...getDragProps(idx)}>{col.header}</TableHead>
+                ))}
                 {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={19 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : (
                 filtered.map(wo => (
                   <TableRow key={wo.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium text-sm">{wo.workOrderNo}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{wo.changeNo || "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{wo.contractNo || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.province}</TableCell>
-                    <TableCell className="text-sm">{wo.group || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.station || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.stationType || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.productType}</TableCell>
-                    <TableCell className="text-sm max-w-[130px] truncate" title={wo.projectContent ?? ""}>{wo.projectContent || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.salesManager}</TableCell>
-                    <TableCell className="text-sm">{wo.circulationTime || "-"}</TableCell>
-                    <TableCell className="text-right text-sm">{fmtAmt(wo.estimatedAmount)}</TableCell>
-                    <TableCell className="text-right text-sm">{fmtAmt(wo.estimatedCost)}</TableCell>
-                    <TableCell className="text-right text-sm">{fmtAmt(wo.actualAmount)}</TableCell>
-                    <TableCell className="text-sm">{wo.deliveryDept || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.projectManager || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.deliveryTime || "-"}</TableCell>
-                    <TableCell className="text-sm">{wo.acceptanceTime || "-"}</TableCell>
-                    {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((wo.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                    {orderedCols.map(col => (
+                      <TableCell key={col.key} className={col.className}>{col.render(wo as unknown as WorkOrderItem)}</TableCell>
+                    ))}
+                    {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String(((wo as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(wo as any)}><Pencil className="h-3.5 w-3.5" /></Button>

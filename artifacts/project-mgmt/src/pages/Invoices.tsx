@@ -18,6 +18,7 @@ import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
+import { useColumnOrder, type ColDef } from "@/hooks/use-column-order";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
@@ -65,10 +66,33 @@ const EMPTY_FORM = {
   courierNo: "", voidDate: "", status: "有效", notes: "",
 };
 
+const INVOICES_COLS: ColDef<InvoiceItem>[] = [
+  { key: "invoiceDate", header: "开票日期", render: i => formatDate(i.invoiceDate), csvValue: i => i.invoiceDate, className: "text-sm" },
+  { key: "customer", header: "开票单位", render: i => i.customer, className: "max-w-[140px] truncate text-sm" },
+  { key: "province", header: "省份", render: i => i.province, className: "text-sm" },
+  { key: "group", header: "集团", render: i => i.group || "-", className: "text-sm" },
+  { key: "station", header: "场站名称", render: i => i.station || "-", className: "text-sm" },
+  { key: "productLine", header: "产品线", render: i => i.productLine || "-", className: "text-sm" },
+  { key: "projectContent", header: "合同项目内容", render: i => i.projectContent || "-", className: "max-w-[120px] truncate text-sm" },
+  { key: "contractNo", header: "合同号", render: i => i.contractNo || "-", className: "text-sm text-muted-foreground" },
+  { key: "salesManager", header: "销售经理", render: i => i.salesManager, className: "text-sm" },
+  { key: "salesContact", header: "销售联系人", render: i => i.salesContact || "-", className: "text-sm" },
+  { key: "contractAmount", header: "合同金额", render: i => i.contractAmount ? formatWanYuan(i.contractAmount) : "-", csvValue: i => i.contractAmount ?? "", className: "text-right text-sm" },
+  { key: "amountWithTax", header: "发票金额", render: i => formatWanYuan(i.amountWithTax), csvValue: i => i.amountWithTax, className: "text-right font-medium text-sm" },
+  { key: "taxRate", header: "税率", render: i => i.taxRate || "-", className: "text-sm" },
+  { key: "amountWithoutTax", header: "不含税", render: i => formatWanYuan(i.amountWithoutTax), csvValue: i => i.amountWithoutTax, className: "text-right text-sm" },
+  { key: "expectedPaymentDate", header: "承诺回款日", render: i => formatDate(i.expectedPaymentDate), csvValue: i => i.expectedPaymentDate ?? "", className: "text-sm" },
+  { key: "actualPaymentDate", header: "实际回款日", render: i => formatDate(i.actualPaymentDate), csvValue: i => i.actualPaymentDate ?? "", className: "text-sm" },
+  { key: "outstandingAmount", header: "未结清", render: i => i.outstandingAmount > 0 ? formatWanYuan(i.outstandingAmount) : "-", csvValue: i => i.outstandingAmount, className: "text-right font-medium text-amber-600 text-sm" },
+  { key: "courierNo", header: "快递单号", render: i => i.courierNo || "-", className: "text-sm text-muted-foreground" },
+  { key: "status", header: "状态", render: i => <Badge variant={i.status === "有效" ? "default" : "secondary"}>{i.status}</Badge>, csvValue: i => i.status },
+];
+
 export default function Invoices() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("invoices");
+  const { orderedCols, reset: resetCols, getDragProps } = useColumnOrder("invoices", INVOICES_COLS);
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -178,31 +202,10 @@ export default function Invoices() {
 
   const handleExport = () => {
     if (!filtered) return;
-    exportToCsv("开票记录", filtered, [
-      { header: "开票日期", accessor: i => formatDate(i.invoiceDate) },
-      { header: "申请开票日期", accessor: i => formatDate(i.applicationDate) },
-      { header: "合同号", accessor: i => i.contractNo ?? "" },
-      { header: "开票单位", accessor: i => i.customer },
-      { header: "省份", accessor: i => i.province },
-      { header: "集团", accessor: i => (i as any).group ?? "" },
-      { header: "场站名称", accessor: i => i.station },
-      { header: "产品线", accessor: i => (i as any).productLine ?? "" },
-      { header: "合同项目内容", accessor: i => (i as any).projectContent ?? "" },
-      { header: "销售经理", accessor: i => i.salesManager },
-      { header: "销售联系人", accessor: i => (i as any).salesContact ?? "" },
-      { header: "合同金额（元）", accessor: i => (i as any).contractAmount ?? "" },
-      { header: "发票金额（元）", accessor: i => i.amountWithTax },
-      { header: "税率", accessor: i => (i as any).taxRate ?? "" },
-      { header: "不含税金额（元）", accessor: i => i.amountWithoutTax },
-      { header: "承诺回款日期", accessor: i => formatDate(i.expectedPaymentDate) },
-      { header: "承诺回款金额", accessor: i => i.expectedPaymentAmount ?? "" },
-      { header: "实际回款日期", accessor: i => formatDate(i.actualPaymentDate) },
-      { header: "实际回款金额", accessor: i => i.actualPaymentAmount ?? "" },
-      { header: "发票快递单号", accessor: i => (i as any).courierNo ?? "" },
-      { header: "作废时间", accessor: i => formatDate((i as any).voidDate) },
-      { header: "状态", accessor: i => i.status },
-      { header: "备注", accessor: i => i.notes ?? "" },
-    ]);
+    exportToCsv("开票记录", filtered as any, orderedCols.map(col => ({
+      header: col.header,
+      accessor: (row: any) => { const cv = col.csvValue; if (cv) return cv(row as InvoiceItem); const v = col.render(row as InvoiceItem); return typeof v === "string" || typeof v === "number" ? v : String(v ?? ""); },
+    })));
   };
 
   return (
@@ -210,6 +213,7 @@ export default function Invoices() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight text-primary">开票管理</h1>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" title="重置列顺序" onClick={resetCols}><span className="text-xs">重置列</span></Button>
           <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
           <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
           <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
@@ -260,65 +264,24 @@ export default function Invoices() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0 z-10">
               <TableRow>
-                <TableHead>开票日期</TableHead>
-                <TableHead>开票单位</TableHead>
-                <TableHead>省份</TableHead>
-                <TableHead>集团</TableHead>
-                <TableHead>场站名称</TableHead>
-                <TableHead>产品线</TableHead>
-                <TableHead>合同项目内容</TableHead>
-                <TableHead>合同号</TableHead>
-                <TableHead>销售经理</TableHead>
-                <TableHead>销售联系人</TableHead>
-                <TableHead className="text-right">合同金额</TableHead>
-                <TableHead className="text-right">发票金额</TableHead>
-                <TableHead>税率</TableHead>
-                <TableHead className="text-right">不含税</TableHead>
-                <TableHead>承诺回款日</TableHead>
-                <TableHead>实际回款日</TableHead>
-                <TableHead className="text-right">未结清</TableHead>
-                <TableHead>快递单号</TableHead>
-                <TableHead>状态</TableHead>
+                {orderedCols.map((col, idx) => (
+                  <TableHead key={col.key} {...getDragProps(idx)}>{col.header}</TableHead>
+                ))}
                 {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
                 <TableHead className="w-[80px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={20 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
               ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={20 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+                <TableRow><TableCell colSpan={orderedCols.length + 1 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
               ) : filtered.map(inv => (
                 <TableRow key={inv.id} className="hover:bg-muted/50">
-                  <TableCell className="text-sm">{formatDate(inv.invoiceDate)}</TableCell>
-                  <TableCell className="max-w-[140px] truncate text-sm" title={inv.customer}>{inv.customer}</TableCell>
-                  <TableCell className="text-sm">{inv.province}</TableCell>
-                  <TableCell className="text-sm">{(inv as any).group || "-"}</TableCell>
-                  <TableCell className="text-sm">{inv.station || "-"}</TableCell>
-                  <TableCell className="text-sm">{(inv as any).productLine || "-"}</TableCell>
-                  <TableCell className="max-w-[120px] truncate text-sm" title={(inv as any).projectContent ?? ""}>{(inv as any).projectContent || "-"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{inv.contractNo || "-"}</TableCell>
-                  <TableCell className="text-sm">{inv.salesManager}</TableCell>
-                  <TableCell className="text-sm">{(inv as any).salesContact || "-"}</TableCell>
-                  <TableCell className="text-right text-sm">{(inv as any).contractAmount ? formatWanYuan((inv as any).contractAmount) : "-"}</TableCell>
-                  <TableCell className="text-right font-medium text-sm">{formatWanYuan(inv.amountWithTax)}</TableCell>
-                  <TableCell className="text-sm">{(inv as any).taxRate || "-"}</TableCell>
-                  <TableCell className="text-right text-sm">{formatWanYuan(inv.amountWithoutTax)}</TableCell>
-                  <TableCell className="text-sm">{formatDate(inv.expectedPaymentDate)}</TableCell>
-                  <TableCell className="text-sm">{formatDate(inv.actualPaymentDate)}</TableCell>
-                  <TableCell className="text-right font-medium text-amber-600 text-sm">{inv.outstandingAmount > 0 ? formatWanYuan(inv.outstandingAmount) : "-"}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{(inv as any).courierNo || "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Badge variant={inv.status === "已回款" ? "default" : inv.status === "作废" ? "secondary" : "outline"}>{inv.status}</Badge>
-                      {inv.isOverdue && (
-                        <TooltipProvider>
-                          <Tooltip><TooltipTrigger><AlertCircle className="w-4 h-4 text-destructive" /></TooltipTrigger><TooltipContent>已逾期</TooltipContent></Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                  </TableCell>
-                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((inv.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                  {orderedCols.map(col => (
+                    <TableCell key={col.key} className={col.className}>{col.render(inv as unknown as InvoiceItem)}</TableCell>
+                  ))}
+                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String(((inv as any).customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(inv as any)}><Pencil className="h-3.5 w-3.5" /></Button>
