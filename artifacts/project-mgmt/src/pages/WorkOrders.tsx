@@ -68,7 +68,7 @@ const PRODUCT_TYPES = ["风电功率预测", "光伏功率预测", "数值天气
 export default function WorkOrders() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { defs, addDef, deleteDef } = useCustomFieldDefs("work_orders");
+  const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("work_orders");
 
   const [search, setSearch] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
@@ -449,7 +449,7 @@ export default function WorkOrders() {
         ]}
         onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
       />
-      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} />
+      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} onReorder={reorderDefs} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   useListReceivables, getListReceivablesQueryKey,
   useCreateReceivable, useUpdateReceivable, useDeleteReceivable,
@@ -10,291 +10,389 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { formatWanYuan, formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
-import { Plus, Download, Search, Trash2, Pencil, Upload, Settings, AlertCircle } from "lucide-react";
+import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomFieldDefs } from "@/hooks/use-custom-fields";
 import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
 
-type ReceivableItem = { id: number; contractNo: string | null; customer: string; province: string; station: string; salesManager: string; receivableType: string; amount: number; expectedDate: string | null; deliveryDate: string | null; acceptanceDate: string | null; invoiceDate: string | null; actualPaymentDate: string | null; daysLate: number | null; status: string; isBadDebt: boolean; notes: string | null; customFields: Record<string, unknown> | null };
-
-const EMPTY_FORM = {
-  contractNo: "", customer: "", province: "", station: "", salesManager: "", receivableType: "进度款",
-  amount: 0, expectedDate: "", deliveryDate: "", acceptanceDate: "", invoiceDate: "",
-  actualPaymentDate: "", status: "待收", isBadDebt: false, notes: "",
+type RItem = {
+  id: number;
+  salesManager: string;
+  salesContact?: string | null;
+  province: string;
+  group?: string | null;
+  station?: string | null;
+  contractNo?: string | null;
+  productLine?: string | null;
+  projectContent?: string | null;
+  contractAmount?: number | null;
+  receivableName?: string | null;
+  amount: number;
+  receivableDate?: string | null;
+  pendingDate?: string | null;
+  committedPeriodDate?: string | null;
+  committedPaymentDate?: string | null;
+  committedAmount?: number | null;
+  actualPaymentDate?: string | null;
+  actualAmount?: number | null;
+  overdueMonths?: string | null;
+  actualInvoiceDate?: string | null;
+  actualDeliveryDate?: string | null;
+  actualAcceptanceDate?: string | null;
+  paymentTerms?: string | null;
+  notes?: string | null;
+  customFields?: Record<string, unknown> | null;
 };
 
-const TYPES = ["进度款", "质保款", "验收款", "预付款", "尾款", "其他"];
-const STATUSES = ["待收", "逾期", "已回款", "坏账"];
+const EMPTY: Omit<RItem, "id"> = {
+  salesManager: "", salesContact: "", province: "", group: "", station: "", contractNo: "",
+  productLine: "", projectContent: "", contractAmount: null, receivableName: "", amount: 0,
+  receivableDate: "", pendingDate: "", committedPeriodDate: "", committedPaymentDate: "",
+  committedAmount: null, actualPaymentDate: "", actualAmount: null, overdueMonths: "",
+  actualInvoiceDate: "", actualDeliveryDate: "", actualAcceptanceDate: "",
+  paymentTerms: "", notes: "", customFields: {},
+};
+
 
 export default function Receivables() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { defs, addDef, deleteDef } = useCustomFieldDefs("receivables");
+  const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("receivables");
 
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [overdueOnly, setOverdueOnly] = useState(false);
   const [managerFilter, setManagerFilter] = useState("all");
-
   const [showCreate, setShowCreate] = useState(false);
-  const [editItem, setEditItem] = useState<ReceivableItem | null>(null);
+  const [editItem, setEditItem] = useState<RItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showCF, setShowCF] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [form, setForm] = useState<typeof EMPTY>({ ...EMPTY });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean | number>>({});
 
   const qp = {
-    contractNo: search || undefined,
     province: provinceFilter !== "all" ? provinceFilter : undefined,
     salesManager: managerFilter !== "all" ? managerFilter : undefined,
-    overdueOnly: overdueOnly || undefined,
   };
-  const { data: receivables, isLoading } = useListReceivables(qp, { query: { queryKey: getListReceivablesQueryKey(qp) } });
+
+  const { data: items = [], isLoading } = useListReceivables(qp);
+  const createMut = useCreateReceivable();
+  const updateMut = useUpdateReceivable();
+  const deleteMut = useDeleteReceivable();
 
   const filtered = useMemo(() => {
-    if (!receivables) return [];
-    let result = receivables;
-    if (typeFilter !== "all") result = result.filter(r => r.receivableType === typeFilter);
-    if (statusFilter !== "all") result = result.filter(r => r.status === statusFilter);
-    return result;
-  }, [receivables, typeFilter, statusFilter]);
+    if (!search) return items as RItem[];
+    const s = search.toLowerCase();
+    return (items as RItem[]).filter(r =>
+      r.salesManager?.toLowerCase().includes(s) ||
+      r.station?.toLowerCase().includes(s) ||
+      r.contractNo?.toLowerCase().includes(s) ||
+      r.receivableName?.toLowerCase().includes(s) ||
+      r.group?.toLowerCase().includes(s)
+    );
+  }, [items, search]);
 
-  const provinces = useMemo(() => [...new Set((receivables ?? []).map(r => r.province).filter(Boolean))].sort(), [receivables]);
-  const managers = useMemo(() => [...new Set((receivables ?? []).map(r => r.salesManager).filter(Boolean))].sort(), [receivables]);
-  const totalAmount = useMemo(() => filtered.reduce((s, r) => s + r.amount, 0), [filtered]);
-  const pendingAmount = useMemo(() => filtered.filter(r => r.status !== "已回款").reduce((s, r) => s + r.amount, 0), [filtered]);
-  const overdueAmount = useMemo(() => filtered.filter(r => (r.daysLate ?? 0) > 0 && r.status !== "已回款").reduce((s, r) => s + r.amount, 0), [filtered]);
+  const provinces = useMemo(() => [...new Set((items as RItem[]).map(r => r.province).filter(Boolean))].sort(), [items]);
+  const managers = useMemo(() => [...new Set((items as RItem[]).map(r => r.salesManager).filter(Boolean))].sort(), [items]);
+  const totalAmount = useMemo(() => filtered.reduce((s, r) => s + (r.amount ?? 0), 0), [filtered]);
+  const totalActual = useMemo(() => filtered.reduce((s, r) => s + (r.actualAmount ?? 0), 0), [filtered]);
 
-  useEffect(() => {
-    if (editItem) {
-      setForm({ contractNo: editItem.contractNo ?? "", customer: editItem.customer, province: editItem.province, station: editItem.station, salesManager: editItem.salesManager, receivableType: editItem.receivableType, amount: editItem.amount, expectedDate: editItem.expectedDate ?? "", deliveryDate: editItem.deliveryDate ?? "", acceptanceDate: editItem.acceptanceDate ?? "", invoiceDate: editItem.invoiceDate ?? "", actualPaymentDate: editItem.actualPaymentDate ?? "", status: editItem.status, isBadDebt: editItem.isBadDebt, notes: editItem.notes ?? "" });
-      setCustomFieldValues((editItem.customFields ?? {}) as Record<string, string | boolean | number>);
-    } else {
-      setForm({ ...EMPTY_FORM });
-      setCustomFieldValues({});
-    }
-  }, [editItem]);
+  function openCreate() { setForm({ ...EMPTY }); setCustomFieldValues({}); setShowCreate(true); }
+  function openEdit(item: RItem) {
+    setForm({ ...item, customFields: item.customFields ?? {} });
+    setCustomFieldValues(Object.fromEntries(Object.entries(item.customFields ?? {}).map(([k, v]) => [k, v as string])));
+    setEditItem(item);
+  }
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListReceivablesQueryKey() });
-
-  const createMutation = useCreateReceivable({ mutation: { onSuccess: () => { invalidate(); setShowCreate(false); toast({ title: "应收记录已创建" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const updateMutation = useUpdateReceivable({ mutation: { onSuccess: () => { invalidate(); setEditItem(null); toast({ title: "已更新" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const deleteMutation = useDeleteReceivable({ mutation: { onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "已删除" }); }, onError: () => toast({ title: "删除失败", variant: "destructive" }) } });
-
-  const handleSubmit = () => {
-    if (!form.customer || !form.province || !form.salesManager) {
-      toast({ title: "请填写必填项", variant: "destructive" }); return;
-    }
-    const data = {
-      ...form, amount: Number(form.amount),
+  function buildPayload() {
+    const cf: Record<string, unknown> = {};
+    defs.forEach(d => { if (customFieldValues[d.fieldName] !== undefined) cf[d.fieldName] = customFieldValues[d.fieldName]; });
+    return {
+      salesManager: form.salesManager || "",
+      salesContact: form.salesContact || undefined,
+      province: form.province || "",
+      group: form.group || undefined,
+      station: form.station || undefined,
       contractNo: form.contractNo || undefined,
-      expectedDate: form.expectedDate || undefined, deliveryDate: form.deliveryDate || undefined,
-      acceptanceDate: form.acceptanceDate || undefined, invoiceDate: form.invoiceDate || undefined,
-      actualPaymentDate: form.actualPaymentDate || undefined, notes: form.notes || undefined,
+      productLine: form.productLine || undefined,
+      projectContent: form.projectContent || undefined,
+      contractAmount: form.contractAmount != null ? form.contractAmount : undefined,
+      receivableName: form.receivableName || undefined,
+      amount: form.amount ?? 0,
+      receivableDate: form.receivableDate || undefined,
+      pendingDate: form.pendingDate || undefined,
+      committedPeriodDate: form.committedPeriodDate || undefined,
+      committedPaymentDate: form.committedPaymentDate || undefined,
+      committedAmount: form.committedAmount != null ? form.committedAmount : undefined,
+      actualPaymentDate: form.actualPaymentDate || undefined,
+      actualAmount: form.actualAmount != null ? form.actualAmount : undefined,
+      overdueMonths: form.overdueMonths || undefined,
+      actualInvoiceDate: form.actualInvoiceDate || undefined,
+      actualDeliveryDate: form.actualDeliveryDate || undefined,
+      actualAcceptanceDate: form.actualAcceptanceDate || undefined,
+      paymentTerms: form.paymentTerms || undefined,
+      notes: form.notes || undefined,
+      customFields: cf,
     };
-    if (editItem) {
-      updateMutation.mutate({ id: editItem.id, data: { ...data, customFields: customFieldValues } as any });
-    } else {
-      createMutation.mutate({ data: { ...data, customFields: customFieldValues } as any });
+  }
+
+  async function handleSave() {
+    if (!form.salesManager || !form.province) {
+      toast({ title: "请填写必填字段", variant: "destructive" }); return;
     }
-  };
+    try {
+      const payload = buildPayload();
+      if (editItem) {
+        await updateMut.mutateAsync({ id: editItem.id, data: payload });
+        toast({ title: "更新成功" });
+        setEditItem(null);
+      } else {
+        await createMut.mutateAsync({ data: payload as Parameters<typeof createMut.mutateAsync>[0]["data"] });
+        toast({ title: "创建成功" });
+        setShowCreate(false);
+      }
+      queryClient.invalidateQueries({ queryKey: getListReceivablesQueryKey() });
+    } catch (e: unknown) {
+      toast({ title: "操作失败", description: String(e), variant: "destructive" });
+    }
+  }
 
-  const f = (k: keyof typeof EMPTY_FORM, v: unknown) => setForm(p => ({ ...p, [k]: v }));
+  async function handleDelete() {
+    if (deleteId == null) return;
+    try {
+      await deleteMut.mutateAsync({ id: deleteId });
+      toast({ title: "删除成功" });
+      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: getListReceivablesQueryKey() });
+    } catch (e: unknown) {
+      toast({ title: "删除失败", description: String(e), variant: "destructive" });
+    }
+  }
 
-  const handleExport = () => {
-    exportToCsv("应收款管理", filtered, [
-      { header: "客户名称", accessor: r => r.customer },
-      { header: "关联合同", accessor: r => r.contractNo ?? "" },
-      { header: "收款类型", accessor: r => r.receivableType },
-      { header: "金额", accessor: r => r.amount },
-      { header: "预计收款日", accessor: r => formatDate(r.expectedDate) },
-      { header: "实际收款日", accessor: r => formatDate(r.actualPaymentDate) },
-      { header: "状态", accessor: r => r.status },
-      { header: "逾期天数", accessor: r => r.daysLate ?? 0 },
-      { header: "是否坏账", accessor: r => r.isBadDebt ? "是" : "否" },
-    ]);
-  };
+  function handleExport() {
+    exportToCsv(filtered.map(r => ({
+      "签订合同销售经理": r.salesManager, "销售联系人": r.salesContact ?? "",
+      "省（区）": r.province, "集团": r.group ?? "", "场站名称": r.station ?? "",
+      "合同编号": r.contractNo ?? "", "产品线": r.productLine ?? "",
+      "合同项目内容": r.projectContent ?? "", "合同金额（万元）": r.contractAmount ?? "",
+      "应收款项名称": r.receivableName ?? "", "应收款金额": r.amount ?? "",
+      "应收时间": r.receivableDate ?? "", "待工程实施进展确定回款时间": r.pendingDate ?? "",
+      "销售经理承诺进入回款期时间": r.committedPeriodDate ?? "", "销售经理承诺回款时间": r.committedPaymentDate ?? "",
+      "销售经理承诺回款金额": r.committedAmount ?? "", "实际回款时间": r.actualPaymentDate ?? "",
+      "实际回款金额": r.actualAmount ?? "", "超期时间（月）": r.overdueMonths ?? "",
+      "实际开票时间": r.actualInvoiceDate ?? "", "实际到货时间": r.actualDeliveryDate ?? "",
+      "实际验收时间": r.actualAcceptanceDate ?? "", "合同约定付款条件": r.paymentTerms ?? "",
+      "备注": r.notes ?? "",
+      ...Object.fromEntries(defs.map(d => [d.fieldLabel, String((r.customFields ?? {})[d.fieldName] ?? "")])),
+    })), "执行中合同应收款明细台账");
+  }
+
+  const NumInput = ({ label, field }: { label: string; field: keyof typeof EMPTY }) => (
+    <div>
+      <Label>{label}</Label>
+      <Input type="number" step="0.01" value={form[field] != null ? String(form[field]) : ""}
+        onChange={e => setForm(f => ({ ...f, [field]: e.target.value ? parseFloat(e.target.value) : null }))} />
+    </div>
+  );
+  const TxtInput = ({ label, field }: { label: string; field: keyof typeof EMPTY }) => (
+    <div>
+      <Label>{label}</Label>
+      <Input value={String(form[field] ?? "")} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} />
+    </div>
+  );
+
+  const isOpen = showCreate || editItem !== null;
 
   return (
-    <div className="space-y-4 flex flex-col h-full">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">应收款管理</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
-          <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
-          <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 新增应收记录</Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "应收总额", value: formatWanYuan(totalAmount), sub: `共 ${filtered.length} 条` },
-          { label: "待收金额", value: formatWanYuan(pendingAmount), sub: "未收回款" },
-          { label: "逾期金额", value: formatWanYuan(overdueAmount), sub: "需重点跟进" },
-        ].map(stat => (
-          <div key={stat.label} className="bg-card border rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-xl font-bold">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-card rounded-lg border shadow-sm p-3 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="搜索合同编号、客户..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        {[
-          { label: "省份", value: provinceFilter, onChange: setProvinceFilter, options: [{ v: "all", l: "全部省份" }, ...provinces.map(p => ({ v: p, l: p }))] },
-          { label: "销售经理", value: managerFilter, onChange: setManagerFilter, options: [{ v: "all", l: "全部经理" }, ...managers.map(m => ({ v: m, l: m }))] },
-          { label: "收款类型", value: typeFilter, onChange: setTypeFilter, options: [{ v: "all", l: "全部类型" }, ...TYPES.map(t => ({ v: t, l: t }))] },
-          { label: "状态", value: statusFilter, onChange: setStatusFilter, options: [{ v: "all", l: "全部状态" }, ...STATUSES.map(s => ({ v: s, l: s }))] },
-        ].map(sel => (
-          <Select key={sel.label} value={sel.value} onValueChange={sel.onChange}>
-            <SelectTrigger className="w-[120px] h-9"><SelectValue placeholder={sel.label} /></SelectTrigger>
-            <SelectContent>{sel.options.map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-lg font-semibold">执行中合同应收款明细台账</h1>
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="搜索..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 w-48" /></div>
+          <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="省份" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">全部省份</SelectItem>{provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select>
-        ))}
-        <div className="flex items-center gap-2">
-          <Checkbox id="overdueR" checked={overdueOnly} onCheckedChange={v => setOverdueOnly(!!v)} />
-          <label htmlFor="overdueR" className="text-sm cursor-pointer">仅逾期</label>
+          <Select value={managerFilter} onValueChange={setManagerFilter}>
+            <SelectTrigger className="w-36"><SelectValue placeholder="销售经理" /></SelectTrigger>
+            <SelectContent><SelectItem value="all">全部销售经理</SelectItem>{managers.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" />批量导入</Button>
+          <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出 CSV</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="h-4 w-4 mr-1" />自定义字段</Button>
+          <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />新增</Button>
         </div>
-        {(search || provinceFilter !== "all" || managerFilter !== "all" || typeFilter !== "all" || statusFilter !== "all" || overdueOnly) && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(""); setProvinceFilter("all"); setManagerFilter("all"); setTypeFilter("all"); setStatusFilter("all"); setOverdueOnly(false); }}>清除筛选</Button>
-        )}
       </div>
 
-      <div className="bg-card rounded-lg border shadow-sm flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-auto flex-1">
-          <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10">
-              <TableRow>
-                <TableHead>客户名称</TableHead>
-                <TableHead>关联合同</TableHead>
-                <TableHead>收款类型</TableHead>
-                <TableHead className="text-right">应收金额</TableHead>
-                <TableHead>预计收款日</TableHead>
-                <TableHead>实际收款日</TableHead>
-                <TableHead>销售经理</TableHead>
-                <TableHead>状态</TableHead>
-                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
-                <TableHead className="w-[80px]"></TableHead>
+      <div className="flex gap-6 text-sm">
+        <span>共 <strong>{filtered.length}</strong> 条</span>
+        <span>应收款合计：<strong>{totalAmount.toFixed(2)}</strong> 万元</span>
+        <span>实际回款合计：<strong>{totalActual.toFixed(2)}</strong> 万元</span>
+      </div>
+
+      <div className="overflow-x-auto rounded border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="text-xs whitespace-nowrap">序号</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">签订合同销售经理</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">销售联系人</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">省（区）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">集团</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">场站名称</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">合同编号</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">产品线</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">合同项目内容</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">合同金额（万元）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">应收款项名称</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">应收款金额</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">应收时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">待工程实施进展确定回款时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">销售经理承诺进入回款期时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">销售经理承诺回款时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">销售经理承诺回款金额</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">实际回款时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">实际回款金额</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">超期时间（月）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">实际开票时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">实际到货时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">实际验收时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">合同约定付款条件</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">备注</TableHead>
+              {defs.map(d => <TableHead key={d.fieldName} className="text-xs whitespace-nowrap">{d.fieldLabel}</TableHead>)}
+              <TableHead className="text-xs">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={26 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={26 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
+            ) : filtered.map((r, idx) => (
+              <TableRow key={r.id} className="hover:bg-muted/30">
+                <TableCell className="text-xs text-center">{idx + 1}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.salesManager}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.salesContact ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.province}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.group ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.station ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.contractNo ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.productLine ?? ""}</TableCell>
+                <TableCell className="text-xs max-w-[120px] truncate">{r.projectContent ?? ""}</TableCell>
+                <TableCell className="text-xs text-right">{r.contractAmount != null ? r.contractAmount.toFixed(2) : ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.receivableName ?? ""}</TableCell>
+                <TableCell className="text-xs text-right font-medium">{r.amount?.toFixed(2) ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.receivableDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.pendingDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.committedPeriodDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.committedPaymentDate ?? ""}</TableCell>
+                <TableCell className="text-xs text-right">{r.committedAmount != null ? r.committedAmount.toFixed(2) : ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.actualPaymentDate ?? ""}</TableCell>
+                <TableCell className="text-xs text-right">{r.actualAmount != null ? r.actualAmount.toFixed(2) : ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.overdueMonths ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.actualInvoiceDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.actualDeliveryDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{r.actualAcceptanceDate ?? ""}</TableCell>
+                <TableCell className="text-xs max-w-[150px] truncate">{r.paymentTerms ?? ""}</TableCell>
+                <TableCell className="text-xs max-w-[100px] truncate">{r.notes ?? ""}</TableCell>
+                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String((r.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(r)}><Pencil className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => setDeleteId(r.id)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
-              ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
-              ) : filtered.map(r => (
-                <TableRow key={r.id} className="hover:bg-muted/50">
-                  <TableCell className="max-w-[160px] truncate" title={r.customer}>{r.customer}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.contractNo || "-"}</TableCell>
-                  <TableCell><Badge variant="outline">{r.receivableType}</Badge></TableCell>
-                  <TableCell className="text-right font-medium text-destructive">{formatWanYuan(r.amount)}</TableCell>
-                  <TableCell>{formatDate(r.expectedDate)}</TableCell>
-                  <TableCell className="text-emerald-600">{formatDate(r.actualPaymentDate)}</TableCell>
-                  <TableCell>{r.salesManager}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <Badge variant={r.status === "已回款" ? "outline" : "default"}>{r.status}</Badge>
-                      {r.isBadDebt && <Badge variant="destructive">坏账</Badge>}
-                      {(r.daysLate ?? 0) > 0 && r.status !== "已回款" && (
-                        <span className="text-xs text-destructive flex items-center gap-0.5"><AlertCircle className="w-3 h-3" />{r.daysLate}天</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((r.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(r as any)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
-      <Dialog open={showCreate || editItem !== null} onOpenChange={v => { if (!v) { setShowCreate(false); setEditItem(null); } }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editItem ? "编辑应收记录" : "新增应收记录"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
-            <div className="col-span-2 space-y-1.5"><Label>客户名称 <span className="text-destructive">*</span></Label><Input value={form.customer} onChange={e => f("customer", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>收款类型</Label>
-              <Select value={form.receivableType} onValueChange={v => f("receivableType", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>省份 <span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>场站</Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>销售经理 <span className="text-destructive">*</span></Label><Input value={form.salesManager} onChange={e => f("salesManager", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>状态</Label>
-              <Select value={form.status} onValueChange={v => f("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2 space-y-1.5"><Label>应收金额（元）</Label><Input type="number" value={form.amount} onChange={e => f("amount", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>预计收款日</Label><Input type="date" value={form.expectedDate} onChange={e => f("expectedDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>实际收款日</Label><Input type="date" value={form.actualPaymentDate} onChange={e => f("actualPaymentDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>交付日期</Label><Input type="date" value={form.deliveryDate} onChange={e => f("deliveryDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>验收日期</Label><Input type="date" value={form.acceptanceDate} onChange={e => f("acceptanceDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>开票日期</Label><Input type="date" value={form.invoiceDate} onChange={e => f("invoiceDate", e.target.value)} /></div>
-            <div className="flex items-center gap-2 pt-5">
-              <Checkbox id="badDebt" checked={form.isBadDebt} onCheckedChange={v => f("isBadDebt", !!v)} />
-              <Label htmlFor="badDebt" className="cursor-pointer">标记为坏账</Label>
-            </div>
-            <div className="col-span-2 space-y-1.5"><Label>备注</Label><Input value={form.notes} onChange={e => f("notes", e.target.value)} /></div>
-            <div className="col-span-2"><CustomFieldsSection defs={defs} values={customFieldValues} onChange={setCustomFieldValues} /></div>
+      <Dialog open={isOpen} onOpenChange={o => { if (!o) { setShowCreate(false); setEditItem(null); } }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editItem ? "编辑记录" : "新增应收款记录"}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <TxtInput label="签订合同销售经理 *" field="salesManager" />
+            <TxtInput label="销售联系人" field="salesContact" />
+            <TxtInput label="省（区）*" field="province" />
+            <TxtInput label="集团" field="group" />
+            <TxtInput label="场站名称" field="station" />
+            <TxtInput label="合同编号" field="contractNo" />
+            <TxtInput label="产品线" field="productLine" />
+            <div className="col-span-2"><Label>合同项目内容</Label><Input value={String(form.projectContent ?? "")} onChange={e => setForm(f => ({ ...f, projectContent: e.target.value }))} /></div>
+            <NumInput label="合同金额（万元）" field="contractAmount" />
+            <TxtInput label="应收款项名称" field="receivableName" />
+            <NumInput label="应收款金额 *" field="amount" />
+            <TxtInput label="应收时间" field="receivableDate" />
+            <TxtInput label="待工程实施进展确定回款时间" field="pendingDate" />
+            <TxtInput label="销售经理承诺进入回款期时间" field="committedPeriodDate" />
+            <TxtInput label="销售经理承诺回款时间" field="committedPaymentDate" />
+            <NumInput label="销售经理承诺回款金额" field="committedAmount" />
+            <TxtInput label="实际回款时间" field="actualPaymentDate" />
+            <NumInput label="实际回款金额" field="actualAmount" />
+            <TxtInput label="超期时间（月）" field="overdueMonths" />
+            <TxtInput label="实际开票时间" field="actualInvoiceDate" />
+            <TxtInput label="实际到货时间" field="actualDeliveryDate" />
+            <TxtInput label="实际验收时间" field="actualAcceptanceDate" />
+            <div className="col-span-2"><Label>合同约定付款条件</Label><Input value={String(form.paymentTerms ?? "")} onChange={e => setForm(f => ({ ...f, paymentTerms: e.target.value }))} /></div>
+            <div className="col-span-2"><Label>备注</Label><Input value={String(form.notes ?? "")} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
+          {defs.length > 0 && <CustomFieldsSection defs={defs} values={customFieldValues} onChange={(k, v) => setCustomFieldValues(prev => ({ ...prev, [k]: v }))} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreate(false); setEditItem(null); }}>取消</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>{editItem ? "保存" : "创建"}</Button>
+            <Button onClick={handleSave}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
+      <AlertDialog open={deleteId !== null} onOpenChange={o => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>确定要删除此应收记录吗？</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>删除</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>此操作不可撤销，确认删除该记录？</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={handleDelete}>删除</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <ImportDialog open={showImport} onOpenChange={setShowImport} title="应收款管理" templateFilename="应收款导入模板.csv"
+      <ImportDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        title="应收款明细"
+        templateFilename="应收款明细导入模板.csv"
         columns={[
-          { key: "customer", label: "客户名称", required: true },
-          { key: "contractNo", label: "关联合同号" },
-          { key: "province", label: "省份", required: true },
-          { key: "salesManager", label: "销售经理", required: true },
-          { key: "receivableType", label: "收款类型" },
-          { key: "amount", label: "应收金额", required: true, transform: v => parseFloat(v) || 0 },
-          { key: "expectedDate", label: "预计收款日" },
-          { key: "status", label: "状态" },
+          { key: "salesManager", label: "签订合同销售经理", required: true },
+          { key: "salesContact", label: "销售联系人" },
+          { key: "province", label: "省（区）", required: true },
+          { key: "group", label: "集团" },
+          { key: "station", label: "场站名称" },
+          { key: "contractNo", label: "合同编号" },
+          { key: "productLine", label: "产品线" },
+          { key: "projectContent", label: "合同项目内容" },
+          { key: "contractAmount", label: "合同金额（万元）", transform: v => v ? parseFloat(v) : undefined },
+          { key: "receivableName", label: "应收款项名称" },
+          { key: "amount", label: "应收款金额", required: true, transform: v => parseFloat(v) || 0 },
+          { key: "receivableDate", label: "应收时间" },
+          { key: "pendingDate", label: "待工程实施进展确定回款时间" },
+          { key: "committedPeriodDate", label: "销售经理承诺进入回款期时间" },
+          { key: "committedPaymentDate", label: "销售经理承诺回款时间" },
+          { key: "committedAmount", label: "销售经理承诺回款金额", transform: v => v ? parseFloat(v) : undefined },
+          { key: "actualPaymentDate", label: "实际回款时间" },
+          { key: "actualAmount", label: "实际回款金额", transform: v => v ? parseFloat(v) : undefined },
+          { key: "overdueMonths", label: "超期时间（月）" },
+          { key: "actualInvoiceDate", label: "实际开票时间" },
+          { key: "actualDeliveryDate", label: "实际到货时间" },
+          { key: "actualAcceptanceDate", label: "实际验收时间" },
+          { key: "paymentTerms", label: "合同约定付款条件" },
+          { key: "notes", label: "备注" },
         ]}
-        onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
+        onImportRow={async (row) => {
+          await createMut.mutateAsync({ data: row as Parameters<typeof createMut.mutateAsync>[0]["data"] });
+          queryClient.invalidateQueries({ queryKey: getListReceivablesQueryKey() });
+        }}
       />
-      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} />
+      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} onReorder={reorderDefs} />
     </div>
   );
 }

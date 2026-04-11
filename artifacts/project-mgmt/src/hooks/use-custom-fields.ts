@@ -49,5 +49,19 @@ export function useCustomFieldDefs(module: string) {
     await fetchDefs();
   };
 
-  return { defs, loading, addDef, deleteDef, refetch: fetchDefs };
+  const reorderDefs = async (orderedIds: number[]) => {
+    await Promise.all(
+      orderedIds.map((id, idx) =>
+        fetch(`${BASE}/api/field-definitions/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sortOrder: idx }),
+        })
+      )
+    );
+    await fetchDefs();
+  };
+
+  return { defs, loading, addDef, deleteDef, reorderDefs, refetch: fetchDefs };
 }

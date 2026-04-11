@@ -1,21 +1,23 @@
-import { pgTable, text, serial, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const weatherServicesTable = pgTable("weather_services", {
   id: serial("id").primaryKey(),
-  contractId: integer("contract_id"),
-  contractNo: text("contract_no"),
-  workOrderId: integer("work_order_id"),
+  contractSalesManager: text("contract_sales_manager").notNull().default(""),
+  salesManager: text("sales_manager").default(""),
   province: text("province").notNull(),
   group: text("group").notNull().default(""),
   station: text("station").notNull(),
-  serviceStartDate: text("service_start_date"),
-  serviceEndDate: text("service_end_date"),
-  status: text("status").notNull().default("服务中"),
-  stoppedDate: text("stopped_date"),
-  overduedMonths: integer("overdued_months"),
-  outageMonths: text("outage_months"),
+  stationType: text("station_type").default(""),
+  forecastStartDate: text("forecast_start_date").default(""),
+  officialForecastDate: text("official_forecast_date").default(""),
+  serviceEndDate: text("service_end_date").default(""),
+  overdueMonths: text("overdue_months").default(""),
+  isOverdue: text("is_overdue").default(""),
+  estimatedContractAmount: numeric("estimated_contract_amount", { precision: 15, scale: 4 }),
+  estimatedContractDate: text("estimated_contract_date").default(""),
+  renewalNotes: text("renewal_notes").default(""),
   notes: text("notes"),
   customFields: jsonb("custom_fields").default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

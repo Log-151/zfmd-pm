@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   useListWeatherServices, getListWeatherServicesQueryKey,
   useCreateWeatherService, useUpdateWeatherService, useDeleteWeatherService,
@@ -10,9 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatDate } from "@/lib/format";
 import { exportToCsv } from "@/lib/export";
 import { Plus, Download, Search, Trash2, Pencil, Upload, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,251 +19,321 @@ import { CustomFieldsManager } from "@/components/crud/CustomFieldsManager";
 import { CustomFieldsSection } from "@/components/crud/CustomFieldsSection";
 import { ImportDialog } from "@/components/crud/ImportDialog";
 
-type WSItem = { id: number; contractNo: string | null; province: string; group: string; station: string; serviceStartDate: string | null; serviceEndDate: string | null; status: string; stoppedDate: string | null; notes: string | null; expiryAlertLevel: string | null; customFields: Record<string, unknown> | null };
-
-const EMPTY = {
-  contractNo: "", province: "", group: "", station: "", serviceStartDate: "", serviceEndDate: "",
-  status: "服务中", stoppedDate: "", notes: "", customFields: {} as Record<string, unknown> | null,
+type WSItem = {
+  id: number;
+  contractSalesManager: string;
+  salesManager?: string | null;
+  province: string;
+  group: string;
+  station: string;
+  stationType?: string | null;
+  forecastStartDate?: string | null;
+  officialForecastDate?: string | null;
+  serviceEndDate?: string | null;
+  overdueMonths?: string | null;
+  isOverdue?: string | null;
+  estimatedContractAmount?: number | null;
+  estimatedContractDate?: string | null;
+  renewalNotes?: string | null;
+  notes?: string | null;
+  customFields?: Record<string, unknown> | null;
 };
 
-const STATUSES = ["服务中", "已停止", "已到期"];
-const ALERT_COLORS: Record<string, string> = {
-  expired: "bg-red-500 text-white hover:bg-red-600",
-  "1m": "bg-orange-500 text-white hover:bg-orange-600",
-  "2m": "bg-yellow-500 text-white hover:bg-yellow-600",
-  "3m": "bg-blue-500 text-white hover:bg-blue-600",
+const EMPTY: Omit<WSItem, "id"> = {
+  contractSalesManager: "", salesManager: "", province: "", group: "", station: "",
+  stationType: "", forecastStartDate: "", officialForecastDate: "", serviceEndDate: "",
+  overdueMonths: "", isOverdue: "", estimatedContractAmount: null, estimatedContractDate: "",
+  renewalNotes: "", notes: "", customFields: {},
 };
-const ALERT_LABELS: Record<string, string> = {
-  expired: "已过期", "1m": "1个月内过期", "2m": "2个月内过期", "3m": "3个月内过期",
-};
+
 
 export default function WeatherServices() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { defs, addDef, deleteDef } = useCustomFieldDefs("weather_services");
+  const { defs = [], addDef, deleteDef, reorderDefs } = useCustomFieldDefs("weather_services");
 
   const [search, setSearch] = useState("");
   const [provinceFilter, setProvinceFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [alertFilter, setAlertFilter] = useState("all");
-
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<WSItem | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [showCF, setShowCF] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY });
+  const [form, setForm] = useState<typeof EMPTY>({ ...EMPTY });
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean | number>>({});
 
-  const qp = {
-    province: provinceFilter !== "all" ? provinceFilter : undefined,
-    status: statusFilter !== "all" ? statusFilter : undefined,
-    expiryAlert: alertFilter !== "all" ? alertFilter : undefined,
-  };
-  const { data: services, isLoading } = useListWeatherServices(qp, { query: { queryKey: getListWeatherServicesQueryKey(qp) } });
+  const { data: items = [], isLoading } = useListWeatherServices({ province: provinceFilter !== "all" ? provinceFilter : undefined });
+  const createMut = useCreateWeatherService();
+  const updateMut = useUpdateWeatherService();
+  const deleteMut = useDeleteWeatherService();
 
   const filtered = useMemo(() => {
-    if (!services) return [];
-    if (!search) return services;
-    return services.filter(s => s.province.includes(search) || s.station.includes(search) || (s.contractNo ?? "").includes(search) || s.group?.includes(search));
-  }, [services, search]);
+    if (!search) return items as WSItem[];
+    const s = search.toLowerCase();
+    return (items as WSItem[]).filter(w =>
+      w.contractSalesManager?.toLowerCase().includes(s) ||
+      w.station?.toLowerCase().includes(s) ||
+      w.province?.toLowerCase().includes(s) ||
+      w.group?.toLowerCase().includes(s) ||
+      w.renewalNotes?.toLowerCase().includes(s)
+    );
+  }, [items, search]);
 
-  const provinces = useMemo(() => [...new Set((services ?? []).map(s => s.province).filter(Boolean))].sort(), [services]);
-  const expiredCount = useMemo(() => filtered.filter(s => s.expiryAlertLevel === "expired").length, [filtered]);
-  const expiringCount = useMemo(() => filtered.filter(s => ["1m", "2m", "3m"].includes(s.expiryAlertLevel ?? "")).length, [filtered]);
-  const activeCount = useMemo(() => filtered.filter(s => s.status === "服务中").length, [filtered]);
+  const provinces = useMemo(() => [...new Set((items as WSItem[]).map(w => w.province).filter(Boolean))].sort(), [items]);
 
-  useEffect(() => {
-    if (editItem) {
-      setForm({ contractNo: editItem.contractNo ?? "", province: editItem.province, group: editItem.group, station: editItem.station, serviceStartDate: editItem.serviceStartDate ?? "", serviceEndDate: editItem.serviceEndDate ?? "", status: editItem.status, stoppedDate: editItem.stoppedDate ?? "", notes: editItem.notes ?? "", customFields: {} });
-      setCustomFieldValues((editItem.customFields ?? {}) as Record<string, string | boolean | number>);
-    } else {
-      setForm({ ...EMPTY });
-      setCustomFieldValues({});
+  function openCreate() { setForm({ ...EMPTY }); setCustomFieldValues({}); setShowCreate(true); }
+  function openEdit(item: WSItem) {
+    setForm({ ...item, customFields: item.customFields ?? {} });
+    setCustomFieldValues(Object.fromEntries(Object.entries(item.customFields ?? {}).map(([k, v]) => [k, v as string])));
+    setEditItem(item);
+  }
+
+  function buildPayload() {
+    const cf: Record<string, unknown> = {};
+    defs.forEach(d => { if (customFieldValues[d.fieldName] !== undefined) cf[d.fieldName] = customFieldValues[d.fieldName]; });
+    return {
+      contractSalesManager: form.contractSalesManager || "",
+      salesManager: form.salesManager || undefined,
+      province: form.province || "",
+      group: form.group || "",
+      station: form.station || "",
+      stationType: form.stationType || undefined,
+      forecastStartDate: form.forecastStartDate || undefined,
+      officialForecastDate: form.officialForecastDate || undefined,
+      serviceEndDate: form.serviceEndDate || undefined,
+      overdueMonths: form.overdueMonths || undefined,
+      isOverdue: form.isOverdue || undefined,
+      estimatedContractAmount: form.estimatedContractAmount != null && form.estimatedContractAmount !== 0 ? form.estimatedContractAmount : undefined,
+      estimatedContractDate: form.estimatedContractDate || undefined,
+      renewalNotes: form.renewalNotes || undefined,
+      notes: form.notes || undefined,
+      customFields: cf,
+    };
+  }
+
+  async function handleSave() {
+    if (!form.contractSalesManager || !form.province || !form.group || !form.station) {
+      toast({ title: "请填写必填字段", variant: "destructive" }); return;
     }
-  }, [editItem]);
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListWeatherServicesQueryKey() });
-
-  const createMutation = useCreateWeatherService({ mutation: { onSuccess: () => { invalidate(); setShowCreate(false); toast({ title: "服务记录已创建" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const updateMutation = useUpdateWeatherService({ mutation: { onSuccess: () => { invalidate(); setEditItem(null); toast({ title: "已更新" }); }, onError: () => toast({ title: "操作失败", variant: "destructive" }) } });
-  const deleteMutation = useDeleteWeatherService({ mutation: { onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "已删除" }); }, onError: () => toast({ title: "删除失败", variant: "destructive" }) } });
-
-  const handleSubmit = () => {
-    if (!form.province || !form.station) {
-      toast({ title: "省份和场站为必填项", variant: "destructive" }); return;
+    try {
+      const payload = buildPayload();
+      if (editItem) {
+        await updateMut.mutateAsync({ id: editItem.id, data: payload });
+        toast({ title: "更新成功" });
+        setEditItem(null);
+      } else {
+        await createMut.mutateAsync({ data: payload as Parameters<typeof createMut.mutateAsync>[0]["data"] });
+        toast({ title: "创建成功" });
+        setShowCreate(false);
+      }
+      queryClient.invalidateQueries({ queryKey: getListWeatherServicesQueryKey() });
+    } catch (e: unknown) {
+      toast({ title: "操作失败", description: String(e), variant: "destructive" });
     }
-    const data = { ...form, contractNo: form.contractNo || undefined, serviceStartDate: form.serviceStartDate || undefined, serviceEndDate: form.serviceEndDate || undefined, stoppedDate: form.stoppedDate || undefined, notes: form.notes || undefined };
-    if (editItem) {
-      updateMutation.mutate({ id: editItem.id, data: { ...data, customFields: customFieldValues } as any });
-    } else {
-      createMutation.mutate({ data: { ...data, customFields: customFieldValues } as any });
+  }
+
+  async function handleDelete() {
+    if (deleteId == null) return;
+    try {
+      await deleteMut.mutateAsync({ id: deleteId });
+      toast({ title: "删除成功" });
+      setDeleteId(null);
+      queryClient.invalidateQueries({ queryKey: getListWeatherServicesQueryKey() });
+    } catch (e: unknown) {
+      toast({ title: "删除失败", description: String(e), variant: "destructive" });
     }
-  };
+  }
 
-  const f = (k: keyof typeof EMPTY, v: unknown) => setForm(p => ({ ...p, [k]: v }));
+  async function handleImportRow(row: Record<string, unknown>) {
+    const body: Record<string, unknown> = {
+      contractSalesManager: row["contractSalesManager"] || row["签订合同销售经理"] || "",
+      salesManager: row["salesManager"] || row["销售经理"] || undefined,
+      province: row["province"] || row["省（区）"] || "",
+      group: row["group"] || row["集团"] || "",
+      station: row["station"] || row["场站名称"] || "",
+      stationType: row["stationType"] || row["场站类别"] || undefined,
+      forecastStartDate: row["forecastStartDate"] || row["开始预报时间"] || undefined,
+      officialForecastDate: row["officialForecastDate"] || row["正式预报时间"] || undefined,
+      serviceEndDate: row["serviceEndDate"] || row["服务合同到期时间"] || undefined,
+      overdueMonths: row["overdueMonths"] || row["超期时间（月）"] || undefined,
+      isOverdue: row["isOverdue"] || row["是否超期（是/否）"] || undefined,
+      estimatedContractAmount: row["estimatedContractAmount"] ? parseFloat(String(row["estimatedContractAmount"])) : undefined,
+      estimatedContractDate: row["estimatedContractDate"] || row["预计签订服务合同时间"] || undefined,
+      renewalNotes: row["renewalNotes"] || row["续签服务合同情况说明"] || undefined,
+      notes: row["notes"] || row["备注"] || undefined,
+    };
+    await createMut.mutateAsync({ data: body as Parameters<typeof createMut.mutateAsync>[0]["data"] });
+    queryClient.invalidateQueries({ queryKey: getListWeatherServicesQueryKey() });
+  }
 
-  const handleExport = () => {
-    exportToCsv("数值天气服务", filtered, [
-      { header: "省份", accessor: s => s.province },
-      { header: "集团", accessor: s => s.group },
-      { header: "场站", accessor: s => s.station },
-      { header: "关联合同", accessor: s => s.contractNo ?? "" },
-      { header: "服务开始", accessor: s => formatDate(s.serviceStartDate) },
-      { header: "服务结束", accessor: s => formatDate(s.serviceEndDate) },
-      { header: "状态", accessor: s => s.status },
-      { header: "预警级别", accessor: s => ALERT_LABELS[s.expiryAlertLevel ?? ""] ?? "正常" },
-    ]);
-  };
+  function handleExport() {
+    exportToCsv(filtered.map(w => ({
+      "签订合同销售经理": w.contractSalesManager, "销售经理": w.salesManager ?? "",
+      "省（区）": w.province, "集团": w.group, "场站名称": w.station, "场站类别": w.stationType ?? "",
+      "开始预报时间": w.forecastStartDate ?? "", "正式预报时间": w.officialForecastDate ?? "",
+      "服务合同到期时间": w.serviceEndDate ?? "", "超期时间（月）": w.overdueMonths ?? "",
+      "是否超期（是/否）": w.isOverdue ?? "", "预计签订服务合同金额（万元）": w.estimatedContractAmount ?? "",
+      "预计签订服务合同时间": w.estimatedContractDate ?? "", "续签服务合同情况说明": w.renewalNotes ?? "",
+      "备注": w.notes ?? "",
+      ...Object.fromEntries(defs.map(d => [d.fieldLabel, String((w.customFields ?? {})[d.fieldName] ?? "")])),
+    })), "数值天气预报服务台账");
+  }
+
+  const FormField = ({ label, field, type = "text" }: { label: string; field: keyof typeof EMPTY; type?: string }) => (
+    <div>
+      <Label>{label}</Label>
+      <Input type={type} value={String(form[field] ?? "")}
+        onChange={e => setForm(f => ({ ...f, [field]: type === "number" ? (e.target.value ? parseFloat(e.target.value) : null) : e.target.value }))} />
+    </div>
+  );
+
+  const isOpen = showCreate || editItem !== null;
 
   return (
-    <div className="space-y-4 flex flex-col h-full">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-primary">数值天气</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" title="自定义字段" onClick={() => setShowCF(true)}><Settings className="w-4 h-4" /></Button>
-          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="w-4 h-4 mr-2" /> 批量导入</Button>
-          <Button variant="outline" size="sm" onClick={handleExport}><Download className="w-4 h-4 mr-2" /> 导出 CSV</Button>
-          <Button size="sm" onClick={() => { setEditItem(null); setShowCreate(true); }}><Plus className="w-4 h-4 mr-2" /> 新增服务</Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: "服务中", value: String(activeCount), sub: `共 ${filtered.length} 条` },
-          { label: "即将到期", value: String(expiringCount), sub: "3个月内" },
-          { label: "已过期", value: String(expiredCount), sub: "需续签" },
-        ].map(stat => (
-          <div key={stat.label} className="bg-card border rounded-lg p-4">
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="text-xl font-bold">{stat.value}</p>
-            <p className="text-xs text-muted-foreground">{stat.sub}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="bg-card rounded-lg border shadow-sm p-3 flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="搜索省份、场站、合同..." className="pl-9 h-9" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        {[
-          { label: "省份", value: provinceFilter, onChange: setProvinceFilter, options: [{ v: "all", l: "全部省份" }, ...provinces.map(p => ({ v: p, l: p }))] },
-          { label: "状态", value: statusFilter, onChange: setStatusFilter, options: [{ v: "all", l: "全部状态" }, ...STATUSES.map(s => ({ v: s, l: s }))] },
-          { label: "预警", value: alertFilter, onChange: setAlertFilter, options: [{ v: "all", l: "全部预警" }, { v: "expired", l: "已过期" }, { v: "1m", l: "1个月内" }, { v: "2m", l: "2个月内" }, { v: "3m", l: "3个月内" }] },
-        ].map(sel => (
-          <Select key={sel.label} value={sel.value} onValueChange={sel.onChange}>
-            <SelectTrigger className="w-[130px] h-9"><SelectValue placeholder={sel.label} /></SelectTrigger>
-            <SelectContent>{sel.options.map(o => <SelectItem key={o.v} value={o.v}>{o.l}</SelectItem>)}</SelectContent>
+    <div className="p-4 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-lg font-semibold">数值天气预报服务台账</h1>
+        <div className="flex gap-2 flex-wrap">
+          <div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="搜索..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 w-48" /></div>
+          <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="省份" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部省份</SelectItem>
+              {provinces.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
           </Select>
-        ))}
-        {(search || provinceFilter !== "all" || statusFilter !== "all" || alertFilter !== "all") && (
-          <Button variant="ghost" size="sm" className="h-9" onClick={() => { setSearch(""); setProvinceFilter("all"); setStatusFilter("all"); setAlertFilter("all"); }}>清除筛选</Button>
-        )}
-      </div>
-
-      <div className="bg-card rounded-lg border shadow-sm flex-1 overflow-hidden flex flex-col">
-        <div className="overflow-auto flex-1">
-          <Table>
-            <TableHeader className="bg-muted/50 sticky top-0 z-10">
-              <TableRow>
-                <TableHead>省份</TableHead>
-                <TableHead>集团</TableHead>
-                <TableHead>场站</TableHead>
-                <TableHead>关联合同</TableHead>
-                <TableHead>服务开始</TableHead>
-                <TableHead>服务结束</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>预警</TableHead>
-                {defs.map(d => <TableHead key={d.fieldName}>{d.fieldLabel}</TableHead>)}
-                <TableHead className="w-[80px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">加载中...</TableCell></TableRow>
-              ) : !filtered.length ? (
-                <TableRow><TableCell colSpan={9 + defs.length} className="text-center py-8 text-muted-foreground">暂无数据</TableCell></TableRow>
-              ) : filtered.map(s => (
-                <TableRow key={s.id} className="hover:bg-muted/50">
-                  <TableCell>{s.province}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.group || "-"}</TableCell>
-                  <TableCell className="font-medium">{s.station}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.contractNo || "-"}</TableCell>
-                  <TableCell>{formatDate(s.serviceStartDate)}</TableCell>
-                  <TableCell>{formatDate(s.serviceEndDate)}</TableCell>
-                  <TableCell><Badge variant={s.status === "服务中" ? "default" : "secondary"}>{s.status}</Badge></TableCell>
-                  <TableCell>
-                    {s.expiryAlertLevel ? (
-                      <Badge className={`font-normal ${ALERT_COLORS[s.expiryAlertLevel] ?? ""}`}>{ALERT_LABELS[s.expiryAlertLevel]}</Badge>
-                    ) : (
-                      <Badge className="bg-green-500 text-white hover:bg-green-600 font-normal">正常</Badge>
-                    )}
-                  </TableCell>
-                  {defs.map(d => <TableCell key={d.fieldName} className="text-sm text-muted-foreground">{String((s.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setEditItem(s as any)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => setDeleteId(s.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <Button variant="outline" size="sm" onClick={() => setShowImport(true)}><Upload className="h-4 w-4 mr-1" />批量导入</Button>
+          <Button variant="outline" size="sm" onClick={handleExport}><Download className="h-4 w-4 mr-1" />导出 CSV</Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCF(true)}><Settings className="h-4 w-4 mr-1" />自定义字段</Button>
+          <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4 mr-1" />新增</Button>
         </div>
       </div>
 
-      <Dialog open={showCreate || editItem !== null} onOpenChange={v => { if (!v) { setShowCreate(false); setEditItem(null); } }}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>{editItem ? "编辑服务记录" : "新增数值天气服务"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-2">
-            <div className="space-y-1.5"><Label>省份 <span className="text-destructive">*</span></Label><Input value={form.province} onChange={e => f("province", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>场站 <span className="text-destructive">*</span></Label><Input value={form.station} onChange={e => f("station", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>集团</Label><Input value={form.group} onChange={e => f("group", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>关联合同号</Label><Input value={form.contractNo} onChange={e => f("contractNo", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>服务开始日期</Label><Input type="date" value={form.serviceStartDate} onChange={e => f("serviceStartDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>服务结束日期</Label><Input type="date" value={form.serviceEndDate} onChange={e => f("serviceEndDate", e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>状态</Label>
-              <Select value={form.status} onValueChange={v => f("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5"><Label>停止日期</Label><Input type="date" value={form.stoppedDate} onChange={e => f("stoppedDate", e.target.value)} /></div>
-            <div className="col-span-2 space-y-1.5"><Label>备注</Label><Input value={form.notes} onChange={e => f("notes", e.target.value)} /></div>
-            <div className="col-span-2"><CustomFieldsSection defs={defs} values={customFieldValues} onChange={setCustomFieldValues} /></div>
+      <div className="flex gap-4 text-sm text-muted-foreground">
+        <span>共 <strong>{filtered.length}</strong> 条记录</span>
+      </div>
+
+      <div className="overflow-x-auto rounded border">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead className="text-xs whitespace-nowrap">序号</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">签订合同销售经理</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">销售经理</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">省（区）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">集团</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">场站名称</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">场站类别</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">开始预报时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">正式预报时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">服务合同到期时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">超期时间（月）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">是否超期（是/否）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">预计签订服务合同金额（万元）</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">预计签订服务合同时间</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">续签服务合同情况说明</TableHead>
+              <TableHead className="text-xs whitespace-nowrap">备注</TableHead>
+              {defs.map(d => <TableHead key={d.fieldName} className="text-xs whitespace-nowrap">{d.fieldLabel}</TableHead>)}
+              <TableHead className="text-xs">操作</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow><TableCell colSpan={17 + defs.length} className="text-center text-muted-foreground py-8">加载中...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={17 + defs.length} className="text-center text-muted-foreground py-8">暂无数据</TableCell></TableRow>
+            ) : filtered.map((w, idx) => (
+              <TableRow key={w.id} className="hover:bg-muted/30">
+                <TableCell className="text-xs text-center">{idx + 1}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.contractSalesManager}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.salesManager ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.province}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.group}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.station}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.stationType ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.forecastStartDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.officialForecastDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.serviceEndDate ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.overdueMonths ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.isOverdue ?? ""}</TableCell>
+                <TableCell className="text-xs text-right">{w.estimatedContractAmount ?? ""}</TableCell>
+                <TableCell className="text-xs whitespace-nowrap">{w.estimatedContractDate ?? ""}</TableCell>
+                <TableCell className="text-xs max-w-[200px] truncate">{w.renewalNotes ?? ""}</TableCell>
+                <TableCell className="text-xs max-w-[120px] truncate">{w.notes ?? ""}</TableCell>
+                {defs.map(d => <TableCell key={d.fieldName} className="text-xs">{String((w.customFields ?? {})[d.fieldName] ?? "")}</TableCell>)}
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => openEdit(w)}><Pencil className="h-3 w-3" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => setDeleteId(w.id)}><Trash2 className="h-3 w-3" /></Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={isOpen} onOpenChange={(o) => { if (!o) { setShowCreate(false); setEditItem(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>{editItem ? "编辑记录" : "新增数值天气预报服务"}</DialogTitle></DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <FormField label="签订合同销售经理 *" field="contractSalesManager" />
+            <FormField label="销售经理" field="salesManager" />
+            <FormField label="省（区）*" field="province" />
+            <FormField label="集团 *" field="group" />
+            <FormField label="场站名称 *" field="station" />
+            <FormField label="场站类别" field="stationType" />
+            <FormField label="开始预报时间" field="forecastStartDate" />
+            <FormField label="正式预报时间" field="officialForecastDate" />
+            <FormField label="服务合同到期时间" field="serviceEndDate" />
+            <FormField label="超期时间（月）" field="overdueMonths" />
+            <FormField label="是否超期（是/否）" field="isOverdue" />
+            <FormField label="预计签订服务合同金额（万元）" field="estimatedContractAmount" type="number" />
+            <FormField label="预计签订服务合同时间" field="estimatedContractDate" />
+            <div className="col-span-2"><Label>续签服务合同情况说明</Label><Input value={String(form.renewalNotes ?? "")} onChange={e => setForm(f => ({ ...f, renewalNotes: e.target.value }))} /></div>
+            <div className="col-span-2"><Label>备注</Label><Input value={String(form.notes ?? "")} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} /></div>
           </div>
+          {defs.length > 0 && <CustomFieldsSection defs={defs} values={customFieldValues} onChange={(k, v) => setCustomFieldValues(prev => ({ ...prev, [k]: v }))} />}
           <DialogFooter>
             <Button variant="outline" onClick={() => { setShowCreate(false); setEditItem(null); }}>取消</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>{editItem ? "保存" : "创建"}</Button>
+            <Button onClick={handleSave}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteId !== null} onOpenChange={v => !v && setDeleteId(null)}>
+      <AlertDialog open={deleteId !== null} onOpenChange={o => { if (!o) setDeleteId(null); }}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>确定要删除此服务记录吗？</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteId !== null && deleteMutation.mutate({ id: deleteId })} disabled={deleteMutation.isPending}>删除</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>确认删除</AlertDialogTitle><AlertDialogDescription>此操作不可撤销，确认删除该记录？</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>取消</AlertDialogCancel><AlertDialogAction onClick={handleDelete}>删除</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <ImportDialog open={showImport} onOpenChange={setShowImport} title="数值天气服务" templateFilename="天气服务导入模板.csv"
+      <ImportDialog
+        open={showImport}
+        onOpenChange={setShowImport}
+        title="数值天气预报服务"
+        templateFilename="数值天气预报服务导入模板.csv"
         columns={[
-          { key: "province", label: "省份", required: true },
-          { key: "station", label: "场站", required: true },
-          { key: "group", label: "集团" },
-          { key: "contractNo", label: "关联合同号" },
-          { key: "serviceStartDate", label: "服务开始日期" },
-          { key: "serviceEndDate", label: "服务结束日期" },
-          { key: "status", label: "状态" },
+          { key: "contractSalesManager", label: "签订合同销售经理", required: true },
+          { key: "salesManager", label: "销售经理" },
+          { key: "province", label: "省（区）", required: true },
+          { key: "group", label: "集团", required: true },
+          { key: "station", label: "场站名称", required: true },
+          { key: "stationType", label: "场站类别" },
+          { key: "forecastStartDate", label: "开始预报时间" },
+          { key: "officialForecastDate", label: "正式预报时间" },
+          { key: "serviceEndDate", label: "服务合同到期时间" },
+          { key: "overdueMonths", label: "超期时间（月）" },
+          { key: "isOverdue", label: "是否超期（是/否）" },
+          { key: "estimatedContractAmount", label: "预计签订服务合同金额（万元）", transform: v => v ? parseFloat(v) : undefined },
+          { key: "estimatedContractDate", label: "预计签订服务合同时间" },
+          { key: "renewalNotes", label: "续签服务合同情况说明" },
+          { key: "notes", label: "备注" },
         ]}
-        onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
+        onImportRow={handleImportRow}
       />
-      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} />
+
+      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} onReorder={reorderDefs} />
     </div>
   );
 }

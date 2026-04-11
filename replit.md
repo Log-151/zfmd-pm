@@ -39,11 +39,11 @@ A comprehensive project management system for a wind/solar energy forecasting co
 
 - `contracts` — Sales contracts with tax/no-tax amounts, special flags
 - `contract_change_logs` — Audit trail for contract changes
-- `payments` — Payment records with payer/province/manager dimensions
+- `payments` — Payment records: paymentDate, payer, province, group, station, productLine, projectContent, contractNo, billAmount, cashAmount, paymentRatio, paymentItemName, salesManager, salesContact, notes, paymentType, amount (Excel 04 column order)
 - `invoices` — Invoice records with expected vs actual payment dates
 - `work_orders` — Work order applications with contract association
-- `weather_services` — Weather forecast service records with expiry dates
-- `receivables` — Receivable tracking with delivery/acceptance/payment dates
+- `weather_services` — 15-field Excel 08 schema: contractSalesManager, salesManager, province, group, station, stationType, forecastStartDate, officialForecastDate, serviceEndDate, overdueMonths, isOverdue, estimatedContractAmount, estimatedContractDate, renewalNotes, notes
+- `receivables` — 23-field Excel 09 schema: salesManager, salesContact, province, group, station, contractNo, productLine, projectContent, contractAmount, receivableName, amount, receivableDate, pendingDate, committedPeriodDate, committedPaymentDate, committedAmount, actualPaymentDate, actualAmount, overdueMonths, actualInvoiceDate, actualDeliveryDate, actualAcceptanceDate, paymentTerms
 
 ## Features
 
@@ -54,6 +54,9 @@ A comprehensive project management system for a wind/solar energy forecasting co
 - **Global dashboard** — Key financial KPIs, overdue alerts, weather expiry alerts, aging analysis
 - **CSV import** — Batch import for all 6 modules with field mapping
 - **CSV export** — Per-module filtered export
+- **Table borders** — Global CSS (border-collapse + 1px border on th/td) applied across all module tables
+- **Excel column order compliance** — All 7 module tables exactly match their respective Excel source file column order (04-10)
+- **Mutation API** — All create/update/delete hooks use `{ data: ... }` and `{ id: number, data: ... }` patterns (NOT `body`/`pathParams`)
 
 ## Key Commands
 

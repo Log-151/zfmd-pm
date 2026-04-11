@@ -359,17 +359,24 @@ export const ListPaymentsQueryParams = zod.object({
 
 export const ListPaymentsResponseItem = zod.object({
   id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
+  paymentDate: zod.string(),
   payer: zod.string(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
-  salesManager: zod.string(),
-  paymentDate: zod.string(),
-  amount: zod.number(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  billAmount: zod.number().nullish(),
+  cashAmount: zod.number().nullish(),
   paymentRatio: zod.number().nullish(),
+  paymentItemName: zod.string().nullish(),
+  salesManager: zod.string(),
+  salesContact: zod.string().nullish(),
   notes: zod.string().nullish(),
+  paymentType: zod.string().nullish(),
+  amount: zod.number(),
+  contractId: zod.number().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -379,23 +386,24 @@ export const ListPaymentsResponse = zod.array(ListPaymentsResponseItem);
  * @summary Record a payment
  */
 export const CreatePaymentBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
+  paymentDate: zod.string(),
   payer: zod.string(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
   productLine: zod.string().nullish(),
   projectContent: zod.string().nullish(),
-  salesManager: zod.string(),
-  salesContact: zod.string().nullish(),
-  paymentDate: zod.string(),
-  amount: zod.number(),
+  contractNo: zod.string().nullish(),
   billAmount: zod.number().nullish(),
   cashAmount: zod.number().nullish(),
   paymentRatio: zod.number().nullish(),
-  paymentType: zod.string().nullish(),
+  paymentItemName: zod.string().nullish(),
+  salesManager: zod.string(),
+  salesContact: zod.string().nullish(),
   notes: zod.string().nullish(),
+  paymentType: zod.string().nullish(),
+  amount: zod.number(),
+  contractId: zod.number().nullish(),
 });
 
 /**
@@ -407,17 +415,24 @@ export const GetPaymentParams = zod.object({
 
 export const GetPaymentResponse = zod.object({
   id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
+  paymentDate: zod.string(),
   payer: zod.string(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
-  salesManager: zod.string(),
-  paymentDate: zod.string(),
-  amount: zod.number(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  billAmount: zod.number().nullish(),
+  cashAmount: zod.number().nullish(),
   paymentRatio: zod.number().nullish(),
+  paymentItemName: zod.string().nullish(),
+  salesManager: zod.string(),
+  salesContact: zod.string().nullish(),
   notes: zod.string().nullish(),
+  paymentType: zod.string().nullish(),
+  amount: zod.number(),
+  contractId: zod.number().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -430,38 +445,46 @@ export const UpdatePaymentParams = zod.object({
 });
 
 export const UpdatePaymentBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
+  paymentDate: zod.string().nullish(),
   payer: zod.string().nullish(),
   province: zod.string().nullish(),
   group: zod.string().nullish(),
   station: zod.string().nullish(),
   productLine: zod.string().nullish(),
   projectContent: zod.string().nullish(),
-  salesManager: zod.string().nullish(),
-  salesContact: zod.string().nullish(),
-  paymentDate: zod.string().nullish(),
-  amount: zod.number().nullish(),
+  contractNo: zod.string().nullish(),
   billAmount: zod.number().nullish(),
   cashAmount: zod.number().nullish(),
   paymentRatio: zod.number().nullish(),
-  paymentType: zod.string().nullish(),
+  paymentItemName: zod.string().nullish(),
+  salesManager: zod.string().nullish(),
+  salesContact: zod.string().nullish(),
   notes: zod.string().nullish(),
+  paymentType: zod.string().nullish(),
+  amount: zod.number().nullish(),
+  contractId: zod.number().nullish(),
 });
 
 export const UpdatePaymentResponse = zod.object({
   id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
+  paymentDate: zod.string(),
   payer: zod.string(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
-  salesManager: zod.string(),
-  paymentDate: zod.string(),
-  amount: zod.number(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  billAmount: zod.number().nullish(),
+  cashAmount: zod.number().nullish(),
   paymentRatio: zod.number().nullish(),
+  paymentItemName: zod.string().nullish(),
+  salesManager: zod.string(),
+  salesContact: zod.string().nullish(),
   notes: zod.string().nullish(),
+  paymentType: zod.string().nullish(),
+  amount: zod.number(),
+  contractId: zod.number().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
@@ -986,51 +1009,51 @@ export const ListWeatherServicesQueryParams = zod.object({
   province: zod.coerce.string().nullish(),
   group: zod.coerce.string().nullish(),
   station: zod.coerce.string().nullish(),
-  status: zod.coerce.string().nullish(),
-  expiryAlert: zod.coerce
-    .string()
-    .nullish()
-    .describe("Filter by expiry alert: 1m, 2m, 3m, expired"),
+  salesManager: zod.coerce.string().nullish(),
 });
 
-export const ListWeatherServicesResponseItem = zod.object({
+const WeatherServiceItem = zod.object({
   id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  workOrderId: zod.number().nullish(),
+  contractSalesManager: zod.string(),
+  salesManager: zod.string().nullish(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
-  serviceStartDate: zod.string().nullish(),
+  stationType: zod.string().nullish(),
+  forecastStartDate: zod.string().nullish(),
+  officialForecastDate: zod.string().nullish(),
   serviceEndDate: zod.string().nullish(),
-  status: zod.string(),
-  stoppedDate: zod.string().nullish(),
-  overduedMonths: zod.number().nullish(),
-  outageMonths: zod.string().nullish(),
+  overdueMonths: zod.string().nullish(),
+  isOverdue: zod.string().nullish(),
+  estimatedContractAmount: zod.number().nullish(),
+  estimatedContractDate: zod.string().nullish(),
+  renewalNotes: zod.string().nullish(),
   notes: zod.string().nullish(),
-  expiryAlertLevel: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
-export const ListWeatherServicesResponse = zod.array(
-  ListWeatherServicesResponseItem,
-);
+
+export const ListWeatherServicesResponseItem = WeatherServiceItem;
+export const ListWeatherServicesResponse = zod.array(ListWeatherServicesResponseItem);
 
 /**
  * @summary Create a weather service record
  */
 export const CreateWeatherServiceBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  workOrderId: zod.number().nullish(),
+  contractSalesManager: zod.string(),
+  salesManager: zod.string().nullish(),
   province: zod.string(),
   group: zod.string(),
   station: zod.string(),
-  serviceStartDate: zod.string().nullish(),
+  stationType: zod.string().nullish(),
+  forecastStartDate: zod.string().nullish(),
+  officialForecastDate: zod.string().nullish(),
   serviceEndDate: zod.string().nullish(),
-  status: zod.string(),
-  stoppedDate: zod.string().nullish(),
-  outageMonths: zod.string().nullish(),
+  overdueMonths: zod.string().nullish(),
+  isOverdue: zod.string().nullish(),
+  estimatedContractAmount: zod.number().nullish(),
+  estimatedContractDate: zod.string().nullish(),
+  renewalNotes: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -1041,25 +1064,7 @@ export const GetWeatherServiceParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetWeatherServiceResponse = zod.object({
-  id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  workOrderId: zod.number().nullish(),
-  province: zod.string(),
-  group: zod.string(),
-  station: zod.string(),
-  serviceStartDate: zod.string().nullish(),
-  serviceEndDate: zod.string().nullish(),
-  status: zod.string(),
-  stoppedDate: zod.string().nullish(),
-  overduedMonths: zod.number().nullish(),
-  outageMonths: zod.string().nullish(),
-  notes: zod.string().nullish(),
-  expiryAlertLevel: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const GetWeatherServiceResponse = WeatherServiceItem;
 
 /**
  * @summary Update weather service
@@ -1069,39 +1074,24 @@ export const UpdateWeatherServiceParams = zod.object({
 });
 
 export const UpdateWeatherServiceBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  workOrderId: zod.number().nullish(),
+  contractSalesManager: zod.string().nullish(),
+  salesManager: zod.string().nullish(),
   province: zod.string().nullish(),
   group: zod.string().nullish(),
   station: zod.string().nullish(),
-  serviceStartDate: zod.string().nullish(),
+  stationType: zod.string().nullish(),
+  forecastStartDate: zod.string().nullish(),
+  officialForecastDate: zod.string().nullish(),
   serviceEndDate: zod.string().nullish(),
-  status: zod.string().nullish(),
-  stoppedDate: zod.string().nullish(),
-  outageMonths: zod.string().nullish(),
+  overdueMonths: zod.string().nullish(),
+  isOverdue: zod.string().nullish(),
+  estimatedContractAmount: zod.number().nullish(),
+  estimatedContractDate: zod.string().nullish(),
+  renewalNotes: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
-export const UpdateWeatherServiceResponse = zod.object({
-  id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  workOrderId: zod.number().nullish(),
-  province: zod.string(),
-  group: zod.string(),
-  station: zod.string(),
-  serviceStartDate: zod.string().nullish(),
-  serviceEndDate: zod.string().nullish(),
-  status: zod.string(),
-  stoppedDate: zod.string().nullish(),
-  overduedMonths: zod.number().nullish(),
-  outageMonths: zod.string().nullish(),
-  notes: zod.string().nullish(),
-  expiryAlertLevel: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const UpdateWeatherServiceResponse = WeatherServiceItem;
 
 /**
  * @summary Delete weather service
@@ -1114,28 +1104,10 @@ export const DeleteWeatherServiceParams = zod.object({
  * @summary Get weather services with expiry alerts
  */
 export const GetWeatherServiceAlertsResponseItem = zod.object({
-  service: zod.object({
-    id: zod.number(),
-    contractId: zod.number().nullish(),
-    contractNo: zod.string().nullish(),
-    workOrderId: zod.number().nullish(),
-    province: zod.string(),
-    group: zod.string(),
-    station: zod.string(),
-    serviceStartDate: zod.string().nullish(),
-    serviceEndDate: zod.string().nullish(),
-    status: zod.string(),
-    stoppedDate: zod.string().nullish(),
-    overduedMonths: zod.number().nullish(),
-    outageMonths: zod.string().nullish(),
-    notes: zod.string().nullish(),
-    expiryAlertLevel: zod.string().nullish(),
-    createdAt: zod.string(),
-    updatedAt: zod.string(),
-  }),
+  service: WeatherServiceItem,
   alertLevel: zod.string(),
   daysUntilExpiry: zod.number().nullish(),
-  overdueMonths: zod.number().nullish(),
+  overdueMonths: zod.string().nullish(),
 });
 export const GetWeatherServiceAlertsResponse = zod.array(
   GetWeatherServiceAlertsResponseItem,
@@ -1145,57 +1117,71 @@ export const GetWeatherServiceAlertsResponse = zod.array(
  * @summary List receivables
  */
 export const ListReceivablesQueryParams = zod.object({
-  contractId: zod.coerce.number().nullish(),
   contractNo: zod.coerce.string().nullish(),
-  year: zod.coerce.number().nullish(),
-  month: zod.coerce.number().nullish(),
   province: zod.coerce.string().nullish(),
   salesManager: zod.coerce.string().nullish(),
-  overdueOnly: zod.coerce.boolean().nullish(),
-  uninvoiced: zod.coerce.boolean().nullish(),
-  undelivered: zod.coerce.boolean().nullish(),
 });
 
-export const ListReceivablesResponseItem = zod.object({
+const ReceivableItem = zod.object({
   id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  customer: zod.string(),
-  province: zod.string(),
-  station: zod.string(),
   salesManager: zod.string(),
-  receivableType: zod.string(),
+  salesContact: zod.string().nullish(),
+  province: zod.string(),
+  group: zod.string().nullish(),
+  station: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractAmount: zod.number().nullish(),
+  receivableName: zod.string().nullish(),
   amount: zod.number(),
-  expectedDate: zod.string().nullish(),
-  deliveryDate: zod.string().nullish(),
-  acceptanceDate: zod.string().nullish(),
-  invoiceDate: zod.string().nullish(),
+  receivableDate: zod.string().nullish(),
+  pendingDate: zod.string().nullish(),
+  committedPeriodDate: zod.string().nullish(),
+  committedPaymentDate: zod.string().nullish(),
+  committedAmount: zod.number().nullish(),
   actualPaymentDate: zod.string().nullish(),
-  daysLate: zod.number().nullish(),
-  status: zod.string(),
-  isBadDebt: zod.boolean(),
+  actualAmount: zod.number().nullish(),
+  overdueMonths: zod.string().nullish(),
+  actualInvoiceDate: zod.string().nullish(),
+  actualDeliveryDate: zod.string().nullish(),
+  actualAcceptanceDate: zod.string().nullish(),
+  paymentTerms: zod.string().nullish(),
   notes: zod.string().nullish(),
   createdAt: zod.string(),
   updatedAt: zod.string(),
 });
+
+export const ListReceivablesResponseItem = ReceivableItem;
 export const ListReceivablesResponse = zod.array(ListReceivablesResponseItem);
 
 /**
  * @summary Create receivable record
  */
 export const CreateReceivableBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  customer: zod.string(),
-  province: zod.string(),
-  station: zod.string(),
   salesManager: zod.string(),
-  receivableType: zod.string(),
+  salesContact: zod.string().nullish(),
+  province: zod.string(),
+  group: zod.string().nullish(),
+  station: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractAmount: zod.number().nullish(),
+  receivableName: zod.string().nullish(),
   amount: zod.number(),
-  expectedDate: zod.string().nullish(),
-  deliveryDate: zod.string().nullish(),
-  acceptanceDate: zod.string().nullish(),
-  invoiceDate: zod.string().nullish(),
+  receivableDate: zod.string().nullish(),
+  pendingDate: zod.string().nullish(),
+  committedPeriodDate: zod.string().nullish(),
+  committedPaymentDate: zod.string().nullish(),
+  committedAmount: zod.number().nullish(),
+  actualPaymentDate: zod.string().nullish(),
+  actualAmount: zod.number().nullish(),
+  overdueMonths: zod.string().nullish(),
+  actualInvoiceDate: zod.string().nullish(),
+  actualDeliveryDate: zod.string().nullish(),
+  actualAcceptanceDate: zod.string().nullish(),
+  paymentTerms: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
@@ -1206,28 +1192,7 @@ export const GetReceivableParams = zod.object({
   id: zod.coerce.number(),
 });
 
-export const GetReceivableResponse = zod.object({
-  id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  customer: zod.string(),
-  province: zod.string(),
-  station: zod.string(),
-  salesManager: zod.string(),
-  receivableType: zod.string(),
-  amount: zod.number(),
-  expectedDate: zod.string().nullish(),
-  deliveryDate: zod.string().nullish(),
-  acceptanceDate: zod.string().nullish(),
-  invoiceDate: zod.string().nullish(),
-  actualPaymentDate: zod.string().nullish(),
-  daysLate: zod.number().nullish(),
-  status: zod.string(),
-  isBadDebt: zod.boolean(),
-  notes: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const GetReceivableResponse = ReceivableItem;
 
 /**
  * @summary Update receivable
@@ -1237,45 +1202,33 @@ export const UpdateReceivableParams = zod.object({
 });
 
 export const UpdateReceivableBody = zod.object({
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  customer: zod.string().nullish(),
-  province: zod.string().nullish(),
-  station: zod.string().nullish(),
   salesManager: zod.string().nullish(),
-  receivableType: zod.string().nullish(),
+  salesContact: zod.string().nullish(),
+  province: zod.string().nullish(),
+  group: zod.string().nullish(),
+  station: zod.string().nullish(),
+  contractNo: zod.string().nullish(),
+  productLine: zod.string().nullish(),
+  projectContent: zod.string().nullish(),
+  contractAmount: zod.number().nullish(),
+  receivableName: zod.string().nullish(),
   amount: zod.number().nullish(),
-  expectedDate: zod.string().nullish(),
-  deliveryDate: zod.string().nullish(),
-  acceptanceDate: zod.string().nullish(),
-  invoiceDate: zod.string().nullish(),
+  receivableDate: zod.string().nullish(),
+  pendingDate: zod.string().nullish(),
+  committedPeriodDate: zod.string().nullish(),
+  committedPaymentDate: zod.string().nullish(),
+  committedAmount: zod.number().nullish(),
   actualPaymentDate: zod.string().nullish(),
-  isBadDebt: zod.boolean().nullish(),
+  actualAmount: zod.number().nullish(),
+  overdueMonths: zod.string().nullish(),
+  actualInvoiceDate: zod.string().nullish(),
+  actualDeliveryDate: zod.string().nullish(),
+  actualAcceptanceDate: zod.string().nullish(),
+  paymentTerms: zod.string().nullish(),
   notes: zod.string().nullish(),
 });
 
-export const UpdateReceivableResponse = zod.object({
-  id: zod.number(),
-  contractId: zod.number().nullish(),
-  contractNo: zod.string().nullish(),
-  customer: zod.string(),
-  province: zod.string(),
-  station: zod.string(),
-  salesManager: zod.string(),
-  receivableType: zod.string(),
-  amount: zod.number(),
-  expectedDate: zod.string().nullish(),
-  deliveryDate: zod.string().nullish(),
-  acceptanceDate: zod.string().nullish(),
-  invoiceDate: zod.string().nullish(),
-  actualPaymentDate: zod.string().nullish(),
-  daysLate: zod.number().nullish(),
-  status: zod.string(),
-  isBadDebt: zod.boolean(),
-  notes: zod.string().nullish(),
-  createdAt: zod.string(),
-  updatedAt: zod.string(),
-});
+export const UpdateReceivableResponse = ReceivableItem;
 
 /**
  * @summary Delete receivable
@@ -1293,28 +1246,7 @@ export const GetReceivableAlertsQueryParams = zod.object({
 });
 
 export const GetReceivableAlertsResponseItem = zod.object({
-  receivable: zod.object({
-    id: zod.number(),
-    contractId: zod.number().nullish(),
-    contractNo: zod.string().nullish(),
-    customer: zod.string(),
-    province: zod.string(),
-    station: zod.string(),
-    salesManager: zod.string(),
-    receivableType: zod.string(),
-    amount: zod.number(),
-    expectedDate: zod.string().nullish(),
-    deliveryDate: zod.string().nullish(),
-    acceptanceDate: zod.string().nullish(),
-    invoiceDate: zod.string().nullish(),
-    actualPaymentDate: zod.string().nullish(),
-    daysLate: zod.number().nullish(),
-    status: zod.string(),
-    isBadDebt: zod.boolean(),
-    notes: zod.string().nullish(),
-    createdAt: zod.string(),
-    updatedAt: zod.string(),
-  }),
+  receivable: ReceivableItem,
   alertType: zod.string(),
   daysLate: zod.number().nullish(),
 });

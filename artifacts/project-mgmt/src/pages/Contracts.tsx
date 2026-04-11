@@ -92,7 +92,7 @@ const EMPTY_FORM = {
 export default function Contracts() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { defs, addDef, deleteDef } = useCustomFieldDefs("contracts");
+  const { defs, addDef, deleteDef, reorderDefs } = useCustomFieldDefs("contracts");
 
   const [search, setSearch] = useState("");
   const [year, setYear] = useState("all");
@@ -563,7 +563,7 @@ export default function Contracts() {
         ]}
         onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
       />
-      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} />
+      <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} onReorder={reorderDefs} />
     </div>
   );
 }
