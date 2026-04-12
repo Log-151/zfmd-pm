@@ -34,7 +34,24 @@ function normalizeHeader(s: string): string {
     .replace(/：/g, ":")
     .replace(/【/g, "[")
     .replace(/】/g, "]")
+    .replace(/\s+/g, "")
     .toLowerCase();
+}
+
+function coreLabel(s: string): string {
+  return normalizeHeader(s).replace(/\(.*?\)/g, "").trim();
+}
+
+function findHeaderIdx(normHeaders: string[], col: { key: string; label: string }): number {
+  const normLabel = normalizeHeader(col.label);
+  const normKey = normalizeHeader(col.key);
+  let idx = normHeaders.findIndex(h => h === normLabel || h === normKey);
+  if (idx >= 0) return idx;
+  const core = coreLabel(col.label);
+  if (core.length >= 2) {
+    idx = normHeaders.findIndex(h => coreLabel(h) === core);
+  }
+  return idx;
 }
 
 function parseCSV(text: string): string[][] {
@@ -70,6 +87,14 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
   const [results, setResults] = useState<RowResult[]>([]);
   const [importing, setImporting] = useState(false);
   const [done, setDone] = useState(false);
+  const [showMapping, setShowMapping] = useState(false);
+
+  const normHeaders = headers.map(normalizeHeader);
+  const colMapping = columns.map(col => ({
+    col,
+    idx: findHeaderIdx(normHeaders, col),
+  }));
+  const unmatchedRequired = colMapping.filter(m => m.idx < 0 && m.col.required).map(m => m.col.label);
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
@@ -81,6 +106,7 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
       setRows(parsed.slice(1).filter(r => r.some(c => c)));
       setResults([]);
       setDone(false);
+      setShowMapping(false);
     };
     reader.readAsText(file, "UTF-8");
   };
@@ -106,14 +132,10 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
     const initial: RowResult[] = rows.map(() => ({ status: "pending" }));
     setResults([...initial]);
 
-    const normHeaders = headers.map(normalizeHeader);
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const obj: Record<string, unknown> = {};
-      for (const col of columns) {
-        const normLabel = normalizeHeader(col.label);
-        const normKey = normalizeHeader(col.key);
-        const idx = normHeaders.findIndex(h => h === normLabel || h === normKey);
+      for (const { col, idx } of colMapping) {
         const val = idx >= 0 ? (row[idx] ?? "").trim() : "";
         obj[col.key] = col.transform ? col.transform(val) : val;
       }
@@ -176,7 +198,38 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
                 {errorCount > 0 && <span className="flex items-center gap-1 text-destructive"><XCircle className="w-4 h-4" /> 失败 {errorCount} 条</span>}
               </div>
             )}
-            <p className="text-sm text-muted-foreground">共 {rows.length} 行数据，预览前 5 行：</p>
+            {unmatchedRequired.length > 0 && (
+              <div className="rounded-md bg-destructive/10 border border-destructive/30 p-2 text-xs text-destructive">
+                <span className="font-semibold">必填列未找到：</span>{unmatchedRequired.join("、")}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground flex-1">共 {rows.length} 行数据，预览前 5 行：</p>
+              <button type="button" className="text-xs underline text-muted-foreground" onClick={() => setShowMapping(v => !v)}>
+                {showMapping ? "隐藏" : "查看"}列映射 ({colMapping.filter(m => m.idx >= 0).length}/{columns.length} 列已匹配)
+              </button>
+            </div>
+            {showMapping && (
+              <div className="rounded border text-xs overflow-auto max-h-48">
+                <table className="w-full text-left">
+                  <thead><tr className="bg-muted"><th className="px-2 py-1">导入字段</th><th className="px-2 py-1">匹配到CSV列</th><th className="px-2 py-1">第1行数值</th><th className="px-2 py-1">状态</th></tr></thead>
+                  <tbody>
+                    {colMapping.map(({ col, idx }) => {
+                      const firstVal = idx >= 0 && rows[0] ? (rows[0][idx] ?? "") : "";
+                      const transformed = idx >= 0 && col.transform ? String(col.transform(firstVal) ?? "") : firstVal;
+                      return (
+                        <tr key={col.key} className={idx < 0 && col.required ? "bg-red-50" : idx < 0 ? "opacity-40" : ""}>
+                          <td className="px-2 py-0.5 whitespace-nowrap">{col.label}{col.required ? <span className="text-destructive"> *</span> : ""}</td>
+                          <td className="px-2 py-0.5 text-muted-foreground max-w-[120px] truncate">{idx >= 0 ? headers[idx] : "—"}</td>
+                          <td className="px-2 py-0.5 font-mono">{idx >= 0 ? (transformed || <span className="text-muted-foreground italic">空</span>) : <span className="text-muted-foreground">—</span>}</td>
+                          <td className="px-2 py-0.5">{idx >= 0 ? <span className="text-green-600 font-bold">✓</span> : <span className="text-muted-foreground">未匹配</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div className="overflow-auto max-h-60 rounded border">
               <Table>
                 <TableHeader>
