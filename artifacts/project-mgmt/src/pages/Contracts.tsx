@@ -539,7 +539,7 @@ export default function Contracts() {
           { key: "thirdPartyFee", label: "第三方接口费(万元)", transform: v => parseFloat(v) || undefined },
           { key: "notes", label: "备注" },
         ]}
-        onImportRow={async (row) => { await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
+        onImportRow={async (row) => { console.log("[ImportRow] amountWithTax:", row.amountWithTax, "| installFee:", row.installFee, "| type:", typeof row.amountWithTax); await createMutation.mutateAsync({ data: row as any }); invalidate(); }}
       />
       <CustomFieldsManager open={showCF} onOpenChange={setShowCF} defs={defs} onAdd={addDef} onDelete={deleteDef} onReorder={reorderDefs} />
     </div>

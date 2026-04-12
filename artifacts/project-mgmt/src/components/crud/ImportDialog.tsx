@@ -99,7 +99,16 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
+      const buffer = e.target?.result as ArrayBuffer;
+      // Try UTF-8 first; if it contains replacement chars (garbled), fall back to GBK
+      // (Chinese Windows Excel saves CSV in GBK by default)
+      let text = new TextDecoder("utf-8").decode(buffer);
+      if (text.includes("\uFFFD")) {
+        console.log("[ImportFile] GBK fallback triggered (UTF-8 had replacement chars)");
+        try { text = new TextDecoder("gbk").decode(buffer); } catch { /* keep utf-8 */ }
+      } else {
+        console.log("[ImportFile] UTF-8 decoding OK, no replacement chars");
+      }
       const parsed = parseCSV(text);
       if (parsed.length < 2) return;
       setHeaders(parsed[0]);
@@ -108,7 +117,7 @@ export function ImportDialog({ open, onOpenChange, title, columns, templateColum
       setDone(false);
       setShowMapping(false);
     };
-    reader.readAsText(file, "UTF-8");
+    reader.readAsArrayBuffer(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {
