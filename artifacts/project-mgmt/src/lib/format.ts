@@ -8,8 +8,8 @@ export function formatWanYuan(amount: number | null | undefined): string {
   if (amount === null || amount === undefined) return "-";
   return new Intl.NumberFormat("zh-CN", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount / 10000) + " 万";
+    maximumFractionDigits: 4,
+  }).format(amount) + " 万";
 }
 
 /**

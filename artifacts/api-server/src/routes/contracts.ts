@@ -107,8 +107,6 @@ router.get("/contracts", async (req, res): Promise<void> => {
 });
 
 router.post("/contracts", async (req, res): Promise<void> => {
-  const { amountWithTax, amountWithoutTax, installFee, serviceFee } = req.body ?? {};
-  console.log(`[CreateContract] amountWithTax=${JSON.stringify(amountWithTax)} (${typeof amountWithTax}), amountWithoutTax=${JSON.stringify(amountWithoutTax)}, installFee=${JSON.stringify(installFee)}, serviceFee=${JSON.stringify(serviceFee)}`);
   const parsed = CreateContractBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
