@@ -10,6 +10,7 @@ COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/project-mgmt/package.json artifacts/project-mgmt/
+COPY lib/api-zod/package.json lib/api-zod/
 RUN pnpm install 
 
 # ─── Build frontend ─────────────────────────────────────────────────────────
@@ -37,6 +38,7 @@ COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/project-mgmt/package.json artifacts/project-mgmt/
+COPY lib/api-zod/package.json lib/api-zod/
 RUN pnpm install  --prod
 
 # Copy built assets
