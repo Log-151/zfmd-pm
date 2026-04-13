@@ -4,7 +4,7 @@ WORKDIR /app
 
 # ─── Install deps ───────────────────────────────────────────────────────────
 FROM base AS deps
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml ./
 COPY lib/api-client-react/package.json lib/api-client-react/
 COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
@@ -31,7 +31,7 @@ FROM node:24-alpine AS runtime
 RUN corepack enable && corepack prepare pnpm@10 --activate
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml ./
 COPY lib/api-client-react/package.json lib/api-client-react/
 COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
