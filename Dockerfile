@@ -10,7 +10,7 @@ COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/project-mgmt/package.json artifacts/project-mgmt/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install 
 
 # ─── Build frontend ─────────────────────────────────────────────────────────
 FROM deps AS frontend-build
@@ -37,7 +37,7 @@ COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
 COPY artifacts/api-server/package.json   artifacts/api-server/
 COPY artifacts/project-mgmt/package.json artifacts/project-mgmt/
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install  --prod
 
 # Copy built assets
 COPY --from=api-build      /app/artifacts/api-server/dist      artifacts/api-server/dist
