@@ -1,10 +1,11 @@
-FROM node:24-alpine AS base
+FROM node:24-slim AS base
 RUN corepack enable && corepack prepare pnpm@10 --activate
 WORKDIR /app
 
 # ─── Install deps ───────────────────────────────────────────────────────────
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml ./
+COPY tsconfig.base.json ./
 COPY lib/api-client-react/package.json lib/api-client-react/
 COPY lib/api-spec/package.json           lib/api-spec/
 COPY lib/db/package.json                 lib/db/
@@ -28,7 +29,7 @@ COPY artifacts/api-server/ artifacts/api-server/
 RUN pnpm --filter @workspace/api-server run build
 
 # ─── Final runtime image ─────────────────────────────────────────────────────
-FROM node:24-alpine AS runtime
+FROM node:24-slim AS runtime
 RUN corepack enable && corepack prepare pnpm@10 --activate
 WORKDIR /app
 
