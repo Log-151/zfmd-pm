@@ -9,9 +9,9 @@ import { FileText, Receipt, Banknote, AlertTriangle } from "lucide-react";
 export default function ProjectManagement() {
   const [year, setYear] = useState<string>(new Date().getFullYear().toString());
   
-  const { data: summary, isLoading } = useGetProjectManagement(
+  const { data: summary, isLoading, isError } = useGetProjectManagement(
     { year: parseInt(year) },
-    { query: { queryKey: getGetProjectManagementQueryKey({ year: parseInt(year) }) } }
+    { query: { queryKey: getGetProjectManagementQueryKey({ year: parseInt(year) }), retry: 1 } }
   );
 
   const metricsGroups = summary ? [
@@ -127,7 +127,11 @@ export default function ProjectManagement() {
             ))}
           </div>
         </>
-      ) : null}
+      ) : isError ? (
+        <div className="text-center py-16 text-muted-foreground text-sm">数据加载失败，请刷新页面重试</div>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground text-sm">暂无数据</div>
+      )}
     </div>
   )
 }

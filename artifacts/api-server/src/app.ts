@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
@@ -11,6 +11,12 @@ import { requireAuth } from "./middleware/auth";
 const app: Express = express();
 
 const isProd = process.env["NODE_ENV"] === "production";
+
+// Trust the first proxy hop (Railway, nginx, Replit, etc.)
+// Without this, Express sees HTTP from the load balancer and refuses to set secure cookies
+if (isProd) {
+  app.set("trust proxy", 1);
+}
 
 app.use(
   pinoHttp({
@@ -53,6 +59,8 @@ app.use(
 );
 
 app.use("/api", authRouter);
+// Health check must be public (no auth) for Railway/Replit deployment health probes
+app.get("/api/healthz", (_req, res) => { res.json({ status: "ok" }); });
 app.use("/api", requireAuth, router);
 
 // Production: serve the built frontend SPA as a single unified server
@@ -68,5 +76,15 @@ if (isProd) {
     res.sendFile(join(frontendDist, "index.html"));
   });
 }
+
+// Global error handler — catches any unhandled errors from route handlers
+// so the server stays up and returns a proper JSON 500 instead of crashing
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const message = err instanceof Error ? err.message : "Internal server error";
+  logger.error({ err }, "Unhandled route error");
+  if (!res.headersSent) {
+    res.status(500).json({ error: message });
+  }
+});
 
 export default app;
